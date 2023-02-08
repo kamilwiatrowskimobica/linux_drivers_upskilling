@@ -4,6 +4,7 @@
 #include <linux/kernel.h>         // Contains types, macros, functions for the kernel
 #include <linux/fs.h>             // Header for the Linux file system support
 #include <linux/uaccess.h>          // Required for the copy to user function
+#include <linux/mutex.h>            
 #define  DEVICE_NAME "mobchar"    ///< The device will appear at /dev/mobchar using this value
 #define  CLASS_NAME  "mob"        ///< The device class -- this is a character device driver
 #define  MSG_LEN     (256u)
@@ -21,6 +22,7 @@ static short size_of_msg;
 static int open_nums = 0;
 static struct class* mobcharclass = NULL;
 static struct device* mobchardevice = NULL;
+static DEFINE_MUTEX(mobchar_mutex);
 
 // Prototypes
 static int dev_open(struct inode*, struct file*);
@@ -40,6 +42,8 @@ static struct file_operations fops =
 static int __init mobchar_init(void)
 {
         printk(KERN_INFO "Mobchar: Init the Mobchar LKM\n");
+
+        mutex_init(&mobchar_mutex);
 
         maj_number = register_chrdev(0, DEVICE_NAME, &fops);
         if (maj_number < 0){
@@ -74,14 +78,26 @@ static void __exit mobchar_exit(void){
         device_destroy(mobcharclass, MKDEV(maj_number, 0));     
         //class_unregister(ebbcharClass);                         
         class_destroy(mobcharclass);                           
-        unregister_chrdev(maj_number, DEVICE_NAME);            
+        unregister_chrdev(maj_number, DEVICE_NAME);       
+        // Destroy mutex
+        mutex_destroy(&mobchar_mutex);      
         printk(KERN_INFO "Mobchar: Goodbye from the LKM!\n");
 }
 
 static int dev_open(struct inode *inodep, struct file *filep){
-        open_nums++;
-        printk(KERN_INFO "Mobchar: Device has been opened %d time(s)\n", open_nums);
-        return 0;
+        // Try to take the mutex
+        // returns 1 if successful and 0 if there is contention
+        if(mutex_trylock(&mobchar_mutex)) 
+        {
+                open_nums++;
+                printk(KERN_INFO "Mobchar: Device has been opened %d time(s)\n", open_nums);
+                return 0;
+        }
+        else
+        {
+                printk(KERN_ALERT "Mobchar: Device in use by another process");
+                return -EBUSY;
+        }
 }
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
@@ -101,7 +117,6 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
-        //sprintf(message, "%s(%zu letters)", buffer, len);   // appending received string with its length
         copy_from_user(msg, buffer, len);
         //snprintf(msg+size_of_msg, len, buffer);
         size_of_msg = strlen(msg);                 // store the length of the stored message
@@ -110,6 +125,8 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 }
 
 static int dev_release(struct inode *inodep, struct file *filep){
+        // Give mutex
+        mutex_unlock(&mobchar_mutex);
         printk(KERN_INFO "Mobchar: Device successfully closed\n");
         return 0;
 }
