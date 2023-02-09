@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/fs.h>
+#include <linux/mutex.h>
 
 #define PRINT_PREFIX "MobChar:"         ///< Prefix shown before eache print
 #define DEVICE_NAME "mobchar"           ///< The device will appear at /dev/ using this value
@@ -21,6 +22,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Drost Krzysztof");
 MODULE_DESCRIPTION("Simple character driver with support for read and write to device.");
 MODULE_VERSION("0.1");
+
+static DEFINE_MUTEX(mobchar_mutex);
 
 static int    deviceNumber;                     ///< Stores the device number -- determined automatically
 static char   message[256] = {0};               ///< Memory for the string that is passed from userspace
@@ -52,6 +55,8 @@ static struct file_operations fops =
 static int __init char_write_read_init(void)
 {
         printk(KERN_INFO "%s Init function start.\n", PRINT_PREFIX);
+
+        mutex_init(&mobchar_mutex);
         // get device number
         deviceNumber = register_chrdev(0, DEVICE_NAME, &fops);
         if (deviceNumber < 0) {
@@ -88,6 +93,7 @@ static int __init char_write_read_init(void)
 static void __exit char_write_read_exit(void)
 {
         printk(KERN_INFO "%s Exit function start.\n", PRINT_PREFIX);
+        mutex_destroy(&mobchar_mutex);
         device_destroy(mobcharClass, MKDEV(deviceNumber, 0));           // remove the device
         class_destroy(mobcharClass);                                    // remove the device class
         unregister_chrdev(deviceNumber, DEVICE_NAME);                   // unregister the major number
@@ -101,9 +107,13 @@ static void __exit char_write_read_exit(void)
  */
 static int dev_open(struct inode *inodep, struct file *filep)
 {
-   opensCounts++;
-   printk(KERN_INFO "%s Device has been opened %d time(s)\n", PRINT_PREFIX, opensCounts);
-   return 0;
+        if (!mutex_trylock(&mobchar_mutex)) {
+                printk(KERN_ALERT "%s Device in use by another process", PRINT_PREFIX);
+                return -EBUSY;
+        }
+        opensCounts++;
+        printk(KERN_INFO "%s Device has been opened %d time(s)\n", PRINT_PREFIX, opensCounts);
+        return 0;
 }
  
 /** @brief This function is called whenever device is being read from user space i.e. data is
@@ -116,18 +126,18 @@ static int dev_open(struct inode *inodep, struct file *filep)
  */
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-   int error_count = 0;
-   // copy_to_user has the format ( * to, *from, size) and returns 0 on success
-   error_count = copy_to_user(buffer, message, meseageSize);
- 
-   if (error_count == 0) {            // if true then have success
-      printk(KERN_INFO "%s Sent %d characters to the user\n", PRINT_PREFIX, meseageSize);
-      return (meseageSize = 0);  // clear the position to the start and return 0
-   }
-   else {
-      printk(KERN_INFO "%s Failed to send %d characters to the user\n", PRINT_PREFIX, error_count);
-      return -EFAULT;              // Failed -- return a bad address message (i.e. -14)
-   }
+        int error_count = 0;
+        // copy_to_user has the format ( * to, *from, size) and returns 0 on success
+        error_count = copy_to_user(buffer, message, meseageSize);
+        
+        if (error_count == 0) {
+                printk(KERN_INFO "%s Sent %d characters to the user\n", PRINT_PREFIX, meseageSize);
+                return (meseageSize = 0);
+        }
+        else {
+                printk(KERN_INFO "%s Failed to send %d characters to the user\n", PRINT_PREFIX, error_count);
+                return -EFAULT;
+        }
 }
  
 /** @brief This function is called whenever the device is being written to from user space i.e.
@@ -140,10 +150,19 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
  */
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
-   sprintf(message, "%s(%zu letters)", buffer, len);
-   meseageSize = strlen(message);
-   printk(KERN_INFO "%s Received %zu characters from the user\n", PRINT_PREFIX, len);
-   return len;
+        int error_count = 0;
+        error_count = copy_from_user(message, buffer, len);
+
+        if (error_count == 0) {
+                meseageSize = strlen(message);
+                printk(KERN_INFO "%s Received %zu characters from the user\n", PRINT_PREFIX, len);
+                return len;
+        }
+        else {
+                printk(KERN_INFO "%s Failed to receive characters from the user\n", PRINT_PREFIX);
+                return -EFAULT;
+        }
+        return len;
 }
  
 /** @brief The device release function that is called whenever the device is closed/released by
@@ -153,8 +172,9 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
  */
 static int dev_release(struct inode *inodep, struct file *filep)
 {
-   printk(KERN_INFO "%s Device successfully closed\n", PRINT_PREFIX);
-   return 0;
+        mutex_unlock(&mobchar_mutex);
+        printk(KERN_INFO "%s Device successfully closed\n", PRINT_PREFIX);
+        return 0;
 }
 
 module_init(char_write_read_init);
