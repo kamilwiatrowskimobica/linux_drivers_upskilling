@@ -18,11 +18,12 @@ MODULE_VERSION("1.0");
 
 int hello_major = 0;
 int hello_minor = 0;
-unsigned int hello_nr_devs = 1;
+unsigned int hello_nr_devs = 2;
 int device_max_size = DEVICE_MAX_SIZE;
 
 module_param(hello_major, int, S_IRUGO);
 module_param(hello_minor, int, S_IRUGO);
+module_param(hello_nr_devs, int, S_IRUGO);
 module_param(device_max_size, int, S_IRUGO);
 
 // Fops prototypes
@@ -252,7 +253,7 @@ static void hello_setup_cdev(struct hello_dev *dev)
 	cdev_init(&dev->cdev, &hello_fops);
 	dev->cdev.owner = THIS_MODULE;
 	dev->cdev.ops = &hello_fops;
-	err = cdev_add(&dev->cdev, devno, 1);
+	err = cdev_add(&dev->cdev, devno, hello_nr_devs);
 	/* Fail gracefully if need be */
 	if (err)
 		printk(KERN_WARNING "Error %d adding hello cdev_add", err);
