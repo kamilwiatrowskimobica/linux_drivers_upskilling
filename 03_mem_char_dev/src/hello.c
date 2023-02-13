@@ -76,8 +76,7 @@ static int hello_buffer_alloc(size_t len)
 		ret = PTR_ERR(hello_devices); 
 	}
 
-	if (0 > ret)
-	{
+	if (!ret){
 		hello_devices->p_data = (char*)kmalloc(len * sizeof(char), GFP_KERNEL);
 		if (!hello_devices->p_data) {
 			ret = -ENOMEM;
@@ -85,7 +84,8 @@ static int hello_buffer_alloc(size_t len)
 		} else {
 			hello_devices->data_len = len;
 		}
-	}
+	} 
+
 	return ret;
 }
 
