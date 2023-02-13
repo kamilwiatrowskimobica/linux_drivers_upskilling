@@ -138,7 +138,7 @@ static int dev_release(struct inode *inodep, struct file *filep)
 	return 0;
 }
 
-static void hello_exit(void)
+static void __exit hello_exit(void)
 {
 	device_destroy(hellodrvcharClass,
 		       MKDEV(majorNumber, 0)); // remove the device
