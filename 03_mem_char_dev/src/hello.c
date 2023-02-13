@@ -77,8 +77,12 @@ static int hello_buffer_alloc(size_t len)
 	}
 
 	if (!ret) {
+		/*
 		hello_devices->p_data =
 			(char *)kmalloc(len * sizeof(char), GFP_KERNEL);
+		*/
+		hello_devices->p_data =
+			(char *)kzalloc(len * sizeof(char), GFP_KERNEL);
 		if (!hello_devices->p_data) {
 			ret = -ENOMEM;
 			printk(KERN_WARNING "ERROR kmalloc p_data\n");
