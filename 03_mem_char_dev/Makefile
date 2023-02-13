@@ -8,10 +8,11 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
 	rm -f ./test
 build_tests:
-	gcc -o test test.c
+	gcc -o test test*.c
 #test need to be run with su priviledges
 test: build_tests
 	./test
 format:
 	clang-format -i hello.c --assume-filename=./.clang-format
-	clang-format -i test.c --assume-filename=./.clang-format_US
+	clang-format -i hello.h --assume-filename=./.clang-format
+	clang-format -i test*.c --assume-filename=./.clang-format_US
