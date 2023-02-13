@@ -10,6 +10,8 @@ else
 	PWD  := $(shell pwd)
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules -Wall
+	$(CC) testchar.c -o testchar
 clean: 
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
+	rm testchar
 endif
