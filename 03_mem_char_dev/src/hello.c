@@ -125,6 +125,7 @@ static int __init hello_init(void)
 		result = alloc_chrdev_region(&dev, hello_minor, hello_nr_devs,
 					     "hello");
 		hello_major = MAJOR(dev);
+		printk(KERN_INFO "Major number is:%d\n", hello_major);
 	}
 	if (result < 0) {
 		printk(KERN_WARNING "Hello: can't get major %d\n", hello_major);
