@@ -196,20 +196,25 @@ void hello_cleanup_module(void)
 static ssize_t hello_read(struct file *filp, char __user *buf, size_t count,
 			  loff_t *f_pos)
 {
-	//struct hello_dev *dev = filp->private_data;
-	ssize_t retval = 0;
+	ssize_t retval;
+	int len = 0;
 	if (count > hello_devices->data_len) {
-		printk(KERN_WARNING
-		       "Hello: trying to read more than possible. Aborting read\n");
-		retval = -EFBIG;
-		//goto out;
-	} else if (copy_to_user(buf, (void *)hello_devices->p_data, count)) {
-		printk(KERN_WARNING "Hello: can't use copy_to_user. \n");
-		retval = -EPERM;
-		//goto out;
+		len = hello_devices->data_len;
+	} else {
+		len = count;
 	}
 
-	printk(KERN_INFO "Performed READ Operation sucessfully\n");
+	int err = copy_to_user(buf, (void *)hello_devices->p_data, len);
+
+	if (0 == err){
+		retval = len;
+		printk(KERN_INFO "%u chars are sent to the user\n", len);
+		
+	} else {
+		retval = -EPERM;
+		printk(KERN_WARNING "Failed to send chars to the user!\n");
+	}
+
 	return retval;
 }
 
