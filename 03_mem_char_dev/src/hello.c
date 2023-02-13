@@ -217,7 +217,6 @@ static ssize_t hello_write(struct file *filp, const char __user *buf,
 			   size_t count, loff_t *f_pos)
 {
 	int retval = 0;
-	struct hello_dev *dev = filp->private_data;
 	if (count > hello_devices->data_len) {
 		printk(KERN_WARNING
 		       "Hello: trying to write more than possible. Aborting write\n");
