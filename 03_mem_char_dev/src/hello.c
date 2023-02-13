@@ -72,19 +72,20 @@ static int hello_buffer_alloc(size_t len)
 {
 	// sanity
 	int ret = 0;
-	if (NULL == hello_devices){
-		ret = PTR_ERR(hello_devices); 
+	if (NULL == hello_devices) {
+		ret = PTR_ERR(hello_devices);
 	}
 
-	if (!ret){
-		hello_devices->p_data = (char*)kmalloc(len * sizeof(char), GFP_KERNEL);
+	if (!ret) {
+		hello_devices->p_data =
+			(char *)kmalloc(len * sizeof(char), GFP_KERNEL);
 		if (!hello_devices->p_data) {
 			ret = -ENOMEM;
 			printk(KERN_WARNING "ERROR kmalloc p_data\n");
 		} else {
 			hello_devices->data_len = len;
 		}
-	} 
+	}
 
 	return ret;
 }
@@ -98,7 +99,8 @@ static int hello_device_alloc(unsigned int hello_num_devs)
 		result = -ENOMEM;
 		printk(KERN_WARNING "ERROR kmalloc dev struct\n");
 	} else {
-		memset(hello_devices, 0, hello_num_devs * sizeof(struct hello_dev));
+		memset(hello_devices, 0,
+		       hello_num_devs * sizeof(struct hello_dev));
 	}
 
 	return result;
@@ -130,14 +132,13 @@ static int __init hello_init(void)
 		result = hello_device_alloc(hello_nr_devs);
 
 	if (!result)
-		// Buffer allocation 
+		// Buffer allocation
 		result = hello_buffer_alloc(DEVICE_MAX_SIZE);
 
 	if (!result)
 		hello_setup_cdev(hello_devices);
 
-	if (!result)
-	{
+	if (!result) {
 		printk(KERN_INFO "Hello INIT success\n");
 	}
 
@@ -206,10 +207,10 @@ static ssize_t hello_read(struct file *filp, char __user *buf, size_t count,
 
 	int err = copy_to_user(buf, (void *)hello_devices->p_data, len);
 
-	if (0 == err){
+	if (0 == err) {
 		retval = len;
 		printk(KERN_INFO "%u chars are sent to the user\n", len);
-		
+
 	} else {
 		retval = -EPERM;
 		printk(KERN_WARNING "Failed to send chars to the user!\n");
