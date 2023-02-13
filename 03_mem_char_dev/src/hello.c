@@ -136,6 +136,11 @@ static int __init hello_init(void)
 	if (!result)
 		hello_setup_cdev(hello_devices);
 
+	if (!result)
+	{
+		printk(KERN_INFO "Hello INIT success\n");
+	}
+
 	if (0 > result)
 		hello_cleanup_module();
 
