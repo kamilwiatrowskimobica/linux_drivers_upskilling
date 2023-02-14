@@ -134,7 +134,7 @@ static int __init woabchar_init(void)
 		return ret;
 
 	ret = woab_seq_file_init();
-	if(ret)
+	if (ret)
 		return ret;
 
 	printk(KERN_INFO "[WOABchar]: Device initialized\n");
@@ -177,21 +177,23 @@ static ssize_t woab_dev_read(struct file *filep, char *buffer, size_t len,
 {
 	int error_count;
 	size_t data_to_send;
-	
-	if(*offset >= woab_device->data_length)
+
+	if (*offset >= woab_device->data_length)
 		return 0;
-	
-	data_to_send = len < woab_device->data_length ? len : woab_device->data_length;
-	
-	WDEBUG("%s:%d len = %lu, data_to_send = %lu, offset = %llu\n", __FUNCTION__, __LINE__, len, data_to_send, *offset);
-	
-	error_count = copy_to_user(buffer, &woab_device->data[*offset],
-				   data_to_send);
+
+	data_to_send =
+		len < woab_device->data_length ? len : woab_device->data_length;
+
+	WDEBUG("%s:%d len = %lu, data_to_send = %lu, offset = %llu\n",
+	       __FUNCTION__, __LINE__, len, data_to_send, *offset);
+
+	error_count =
+		copy_to_user(buffer, &woab_device->data[*offset], data_to_send);
 
 	if (0 == error_count) {
 		printk(KERN_INFO "WOABchar: Sent %lu characters to the user\n",
 		       data_to_send);
-		       *offset += data_to_send;
+		*offset += data_to_send;
 		return data_to_send;
 	} else {
 		printk(KERN_INFO
@@ -205,9 +207,10 @@ static ssize_t woab_dev_write(struct file *filep, const char *buffer,
 			      size_t len, loff_t *offset)
 {
 	int uncopied, ret;
-	
-	WDEBUG("%s:%d len = %lu, offset = %llu\n", __FUNCTION__, __LINE__, len, *offset);
-	
+
+	WDEBUG("%s:%d len = %lu, offset = %llu\n", __FUNCTION__, __LINE__, len,
+	       *offset);
+
 	if (len > woab_device->buffer_length) {
 		ret = woab_device_alloc_buffer(len);
 		if (ret)
@@ -222,7 +225,7 @@ static ssize_t woab_dev_write(struct file *filep, const char *buffer,
 	printk(KERN_INFO
 	       "WOABchar: Received %lu (%d uncopied) characters from the user",
 	       len, uncopied);
-	       
+
 	*offset += len;
 	return len;
 }
