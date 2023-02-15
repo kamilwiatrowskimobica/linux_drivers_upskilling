@@ -17,6 +17,7 @@
 
 #define BUFFER_LENGTH 256 ///< The buffer length (crude but fine)
 #define DEVICE "/dev/hellodrvchar"
+//#define DEVICE "/dev/hellodrvchar0"
 static char receive[BUFFER_LENGTH]; ///< The receive buffer from the LKM
 
 int main()
@@ -30,6 +31,7 @@ int main()
 
 	for (i = sizeof(stringToSend) / sizeof(stringToSend[0]) - 1; i >= 0;
 	     i--) {
+		//printf("Trying to open file %s \n", DEVICE);
 		fd = open(DEVICE,
 			  O_RDWR); // Open the device with read/write access
 		if (fd < 0) {
@@ -68,9 +70,9 @@ int main()
 			strnlen(stringToSend[i],
 				BUFFER_LENGTH)); //zero if equal compare up to '\0'
 		if (areStringsDifferent) {
-			printf("FAIL\n");
+			printf("FAIL\n\n");
 		} else {
-			printf("SUCCESS\n");
+			printf("SUCCESS\n\n");
 		}
 		close(fd);
 	}

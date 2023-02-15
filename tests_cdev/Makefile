@@ -1,5 +1,18 @@
 obj-m+=hello.o
 
+DEBUG = y
+
+
+# Add debugging flags (or not) to EXTRA_CFLAGS
+ifeq ($(DEBUG),y)
+  DEBFLAGS = -O -g -DMTLE_DEBUG # "-O" is needed to expand inlines
+else
+  DEBFLAGS = -O2
+endif
+
+EXTRA_CFLAGS += $(DEBFLAGS)
+
+
 all: build_modules build_tests
 
 build_modules:

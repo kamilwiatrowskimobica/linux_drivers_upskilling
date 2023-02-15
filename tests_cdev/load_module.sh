@@ -4,11 +4,14 @@
 
 set -e
 
+module_name="hello"
+device="hellodrvchar"
+mode="664"
 
-#printf "Help:\n\t$0 name_of_module_loaded\nThere is no need for .ko extension\nRun with su priviledges\n\n"
 
-module_name=$1
-if [[ $1 =~ ".ko" ]]; then
+#printf "Help:\n\t$0 [options_to_load_module]\nRun with su priviledges\n\n"
+
+if [[ ${module_name} =~ ".ko" ]]; then
         module_file="${module_name}"
 else
         module_file="${module_name}.ko"
@@ -26,14 +29,37 @@ objdump -dS --adjust-vma=$(ADDRESS) hello.ko
 
 modinfo ${module_file}
 
-insmod ${module_file}
+
+#reload module
+if [[ $(lsmod|grep -c ${module_name} ) == 1 ]] ; then
+	rmmod ${module_name}
+fi
+insmod ${module_file} $* || exit 1
 
 #test if module is loaded
-if [ $(lsmod|grep -c ${module_name} ) ] ; then
+if [[ $(lsmod|grep -c ${module_name} ) == 1 ]] ; then
         printf "SUCCESS\n"
 else
-        printf "FAIL\n"
+        printf "FAIL - no module of that name\n"
 fi
+
+
+echo "/PROC/DEVICES allows retrieving major number of a device"
+cat /proc/devices|grep ${device}
+# retrieve major number (returns multiple, if more than one)
+major=$(awk "\$2==\"${device}\" {print \$1}" /proc/devices)
+# retrieve major number (returns random, not necessarily the last assigned)
+#major=$(awk "\$2==\"${device}\" {print \$1; exit}" /proc/devices)
+#rm -f /dev/${device}[0-3]
+# create a char device with og+rw permissions
+mknod -m og+rw /dev/${device}0 c ${major} 0
+##mknod /dev/${device}0 c ${major} 0
+##mknod /dev/${device}1 c ${major} 1
+##mknod /dev/${device}2 c ${major} 2
+##mknod /dev/${device}3 c ${major} 3
+ln -sf /dev/${device}0 /dev/${device}
+##chgrp $group /dev/${device}[0-3]
+##chmod $mode  /dev/${device}[0-3]
 
 echo "/PROC/MODULES"
 cat /proc/modules | grep ${module_name}
@@ -45,21 +71,21 @@ else
         printf "${PARAM_DIR} does not exist\n"
 fi
 
-echo "UDEVADM INFO - usefull for creating /etc/udev/rules.d"
-udevadm info -a -p /sys/class/hellodrv/hellodrvchar
-
-if [[ -e /etc/udev/rules.d/99-hellodrv.rules ]]; then
-        echo "UDEV RULES EXIST"
-else
-        echo "CREATING UDEV RULES"
-        touch /etc/udev/rules.d/99-hellodrv.rules
-        echo "KERNEL==\"hellodrvchar\", SUBSYSTEM==\"hellodrv\", MODE=\"0666\"" >> /etc/udev/rules.d/99-hellodrv.rules
-fi
+#echo "UDEVADM INFO - usefull for creating /etc/udev/rules.d"
+#udevadm info -a -p /sys/class/hellodrv/hellodrvchar
+#
+#if [[ -e /etc/udev/rules.d/99-hellodrv.rules ]]; then
+#        echo "UDEV RULES EXIST"
+#else
+#        echo "CREATING UDEV RULES"
+#        touch /etc/udev/rules.d/99-hellodrv.rules
+#        echo "KERNEL==\"hellodrvchar\", SUBSYSTEM==\"hellodrv\", MODE=\"0666\"" >> /etc/udev/rules.d/99-hellodrv.rules
+#fi
 
 echo "STRACE TEST"
 strace ./test
 
-rmmod ${module_file}
+#rmmod ${module_file}
 
 
 
