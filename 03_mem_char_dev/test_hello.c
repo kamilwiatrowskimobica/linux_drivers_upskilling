@@ -3,9 +3,7 @@
  * Author  :  Leonardo Suriano<leonardo.suriano@live.it>
  *
  * A simple example of a C program to test some of the
- * operations of the "/dev/hello" device (a.k.a "hello0"),
- *
- * To compile the file: gcc test_hello.c -o test_hello.elf
+ * operations of the DEVICE  device,
  *
  */
 #include <unistd.h>
@@ -14,13 +12,15 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#define DEVICE "/dev/hellodrvchar"
+
 int main()
 {
 	int fd, result;
 
 	printf("\n-- TEST hello device_driver--\n");
 	/* Open operation */
-	if ((fd = open("/dev/hello", O_RDWR)) < 0) {
+	if ((fd = open(DEVICE, O_RDWR)) < 0) {
 		perror("1. open failed \n");
 		goto fail;
 	} else {
