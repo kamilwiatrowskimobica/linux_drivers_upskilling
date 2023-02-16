@@ -1,6 +1,6 @@
 obj-m+=hello.o
 
-DEBUG = y
+DEBUG=y
 
 
 # Add debugging flags (or not) to EXTRA_CFLAGS
@@ -14,6 +14,7 @@ EXTRA_CFLAGS += $(DEBFLAGS)
 
 
 all: build_modules build_tests
+	echo "Using following EXTRA_CFLAGS: ${EXTRA_CFLAGS}"
 
 build_modules:
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules

@@ -19,6 +19,10 @@ MODULE_VERSION("0.1");
 #define DEV "/dev/foo"
 #define MAX_MESSAGE_LEN 256
 
+#ifdef MTLE_DEBUG
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+#endif // MTLE_DEBUG
 static int majorNumber = 0;
 static int minorNumber = 0;
 static int nr_devs = 1;
@@ -30,6 +34,9 @@ static int numberOpens = 0; ///< Counts the number of times the device is opened
 static struct class *hellodrvcharClass = NULL;
 static struct device *hellodrvcharDevice = NULL;
 struct hello_dev *hello_devices = NULL;
+#ifdef MTLE_DEBUG
+#pragma GCC pop_options
+#endif // MTLE_DEBUG
 
 module_param(majorNumber, int, S_IRUGO);
 module_param(minorNumber, int, S_IRUGO);
