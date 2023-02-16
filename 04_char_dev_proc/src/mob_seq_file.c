@@ -35,7 +35,7 @@ int __init mob_seq_file_init(void)
     if (NULL == p_proc_read)
         ret = PTR_ERR(p_proc_read);
 
-	return ret;
+	return 0;
 }
 
 void __exit mob_seq_file_exit(void)
@@ -46,6 +46,9 @@ void __exit mob_seq_file_exit(void)
 static void *mob_seq_start(struct seq_file *s, loff_t *pos)
 {
     loff_t *next;
+
+    next = kmalloc(sizeof(loff_t), GFP_KERNEL);
+
     MOB_PRINT("%s: pos = %llu", __FUNCTION__, *pos);
 
     if (*pos >= MOB_PROC_MAX)
@@ -58,11 +61,13 @@ static void *mob_seq_start(struct seq_file *s, loff_t *pos)
 static void *mob_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
     loff_t *next = v;
-    *pos = ++*next;
+    *pos += 1;
     MOB_PRINT("%s: pos = %llu", __FUNCTION__, *pos);
 
     if (*pos >= MOB_PROC_MAX)
         return NULL;
+        
+    *pos = ++*next;
     return next;
 }
 
@@ -81,5 +86,6 @@ static int mob_seq_show(struct seq_file *s, void *v)
 
 static int mob_seq_file_open(struct inode *inode, struct file *filp)
 {
+    MOB_PRINT("Opening from driver\n");
     return seq_open(filp, &mob_seq_ops);
 }
