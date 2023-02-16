@@ -38,6 +38,9 @@ static ssize_t mob_read(struct file *filp, char __user *buf, size_t count,
 			loff_t *f_pos);
 void mob_cleanup_module(void);
 
+int __init mob_seq_file_init(void);
+void __exit mob_seq_file_exit(void);
+
 /**
  * @brief Allocates mob_dev struct.
  * 
@@ -140,6 +143,9 @@ static int __init mob_init(void)
 	if (!result)
 		mob_setup_cdev(mob_devices);
 
+	if (!result)
+		result = mob_seq_file_init();
+
 	if (!result) {
 		printk(KERN_INFO "MOBCHAR INIT success\n");
 	}
@@ -156,6 +162,7 @@ static int __init mob_init(void)
 
 static void __exit mob_exit(void)
 {
+	mob_seq_file_exit();
 	printk(KERN_INFO "--calling cleanup function--\n");
 	mob_cleanup_module();
 }
