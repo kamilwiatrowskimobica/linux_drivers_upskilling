@@ -24,10 +24,10 @@ else
 	PWD  := $(shell pwd)
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules -Wall
-	$(CC) src/testchar.c -o testchar
+
 clean: 
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
-	rm -rf testchar *.o *.ko *.elf
+
 endif
 
 depend .depend dep:
