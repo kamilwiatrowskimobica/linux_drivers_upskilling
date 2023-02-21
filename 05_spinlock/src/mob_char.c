@@ -208,13 +208,14 @@ void mob_cleanup_module(void)
 		cdev_del(&(mob_devices[it].cdev));
 	}
 	/* freeing the memory */
-	if ((mob_devices->p_data) != 0) {
-		for(int it = 0; it < mob_nr_devs; it++)
-		{
+
+	for(int it = 0; it < mob_nr_devs; it++)
+	{
+		if ((mob_devices[it].p_data) != 0)
 			kfree(mob_devices[it].p_data);
-		}
-		printk(KERN_INFO "Kfree the string-memo ry\n");
 	}
+	printk(KERN_INFO "Kfree the string-memory\n");
+	
 	if ((mob_devices) != 0) {
 		kfree(mob_devices);
 		printk(KERN_INFO "Kfree mob_devices\n");
