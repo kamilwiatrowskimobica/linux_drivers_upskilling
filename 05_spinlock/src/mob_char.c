@@ -283,10 +283,10 @@ static ssize_t mob_write(struct file *filp, const char __user *buf,
 	MOB_PRINT("%s: len = %lu, offset = %llu\n", __FUNCTION__, count,
 		  *f_pos);
 
-	struct mob_dev *mdev = (struct mob_dev *)filp->private_data;
+	struct mob_dev *mdev = (struct mob_dev*)filp->private_data;
 
 	if (mdev->mode == SYNC_MODE_SMPHR) {
-		mob_sync_semphr_take(&(mdev->semphr));
+		mob_sync_semphr_take(&mdev->semphr);
 	}
 
 	if (count > mdev->buffer_len) {
