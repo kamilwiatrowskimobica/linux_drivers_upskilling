@@ -101,8 +101,6 @@ static int mob_device_alloc(unsigned int mob_num_devs)
 	if (!mob_devices) {
 		result = -ENOMEM;
 		printk(KERN_WARNING "ERROR kmalloc dev struct\n");
-	} else {
-		memset(mob_devices, 0, mob_num_devs * sizeof(struct mob_dev));
 	}
 
 	return result;
