@@ -233,8 +233,22 @@ static ssize_t mob_read(struct file *filp, char __user *buf, size_t count,
 	MOB_PRINT("%s: len = %lu, offset = %llu\n, data_len = %d", __FUNCTION__,
 		  count, *f_pos, mob_devices->data_len);
 
+	MOB_PRINT("Mode %d\n", mdev->mode);	  
+
+	if (mdev->mode == SYNC_MODE_SMPHR) {
+		MOB_PRINT("Taking read semaphore\n");
+		mob_sync_semphr_take(&(mdev->semphr));
+	}
+
+
 	if (*f_pos >= mdev->data_len)
+	{
+		if (mdev->mode == SYNC_MODE_SMPHR) {
+			MOB_PRINT("Giving read semaphore\n");
+			mob_sync_semphr_give(&(mdev->semphr));
+		}
 		return 0;
+	}
 
 	if (mdev->data_len > count) {
 		size = count;
@@ -242,7 +256,7 @@ static ssize_t mob_read(struct file *filp, char __user *buf, size_t count,
 		size = mdev->data_len;
 	}
 
-	int err = copy_to_user(buf, (void *)mdev->p_data + *f_pos, size);
+	int err = copy_to_user(buf, (const void *)mdev->p_data + *f_pos, size);
 
 	if (0 == err) {
 		retval = size;
@@ -290,6 +304,10 @@ static ssize_t mob_write(struct file *filp, const char __user *buf,
 		mdev->data_len = count;
 		*f_pos += count;
 		MOB_PRINT("%lu number of written bytes\n", count);
+	}
+
+	if (mdev->mode == SYNC_MODE_SMPHR) {
+		mob_sync_semphr_give(&(mdev->semphr));
 	}
 
 	return retval;
