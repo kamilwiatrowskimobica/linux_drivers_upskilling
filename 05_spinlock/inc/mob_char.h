@@ -16,6 +16,7 @@ struct mob_dev {
 	sync_mode mode;
 	union {
 		struct semaphore semphr;
+		struct completion compl;
 	};
 	spinlock_t spn_lck;
 };
