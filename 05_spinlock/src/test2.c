@@ -24,8 +24,8 @@ struct task_data {
 int main(void)
 {
 	printf("Starting...\n");
-    //spinlock_test_exec();
-    semaphore_test_exec();
+	//spinlock_test_exec();
+	semaphore_test_exec();
 }
 
 void spinlock_test_exec()
@@ -36,11 +36,11 @@ void spinlock_test_exec()
 	const char *testing_device_one = "/dev/mobchar1";
 
 	struct task_data td0 = {
-        .id = 0,
-    };
+		.id = 0,
+	};
 	struct task_data td1 = {
-        .id = 1,
-    };
+		.id = 1,
+	};
 
 	pthread_t th0, th1;
 
@@ -53,23 +53,22 @@ void spinlock_test_exec()
 	pthread_join(th1, NULL);
 	pthread_join(th0, NULL);
 
-
-    printf("Test Over...\n");
+	printf("Test Over...\n");
 }
 
 void semaphore_test_exec(void)
 {
-    printf("Semaphore test inc...\n");
+	printf("Semaphore test inc...\n");
 
 	const char *testing_device_zero = "/dev/mobchar0";
 	const char *testing_device_one = "/dev/mobchar0";
 
 	struct task_data td0 = {
-        .id = 0,
-    };
+		.id = 0,
+	};
 	struct task_data td1 = {
-        .id = 1,
-    };
+		.id = 1,
+	};
 
 	pthread_t th0, th1;
 
@@ -82,84 +81,78 @@ void semaphore_test_exec(void)
 	pthread_join(th1, NULL);
 	pthread_join(th0, NULL);
 
-
-    printf("Test Over...\n");
+	printf("Test Over...\n");
 }
 
 void *spinlock_test_function(void *p_data)
 {
-    struct task_data *data = (struct task_data*)p_data;
-    int fl;
+	struct task_data *data = (struct task_data *)p_data;
+	int fl;
 
-    printf("Task%d rolling\n", data->id);
+	printf("Task%d rolling\n", data->id);
 
-    for (int it = 0; it < 20; it++) {
-        if (fl = open(data->device, O_RDWR) < 0){
-            printf("Failed to open device\n");
-        }
-        sleep(1);
-        close(fl);
-    }
+	for (int it = 0; it < 20; it++) {
+		if (fl = open(data->device, O_RDWR) < 0) {
+			printf("Failed to open device\n");
+		}
+		sleep(1);
+		close(fl);
+	}
 
-    return NULL;
+	return NULL;
 }
-
 
 void *semaphore_test_function(void *p_data)
 {
-    struct task_data *data = (struct task_data*)p_data;
-    int fl;
-    char txt[256];
-    int ret;
-    const char* pattern1 = "Copy this";
-    const char* pattern2 = "Paste that";
+	struct task_data *data = (struct task_data *)p_data;
+	int fl;
+	char txt[256];
+	int ret;
+	const char *pattern1 = "Copy this";
+	const char *pattern2 = "Paste that";
 
-    printf("Task%d rolling\n", data->id);
+	printf("Task%d rolling\n", data->id);
 
-    for (int it = 0; it < 100; it++) {
+	for (int it = 0; it < 100; it++) {
+		memset(txt, 0, sizeof(txt));
 
-        memset(txt, 0, sizeof(txt));
+		if ((fl = open(data->device, O_RDWR)) < 0) {
+			printf("Failed to open device\n");
+			continue;
+		}
 
-        if ((fl = open(data->device, O_RDWR)) < 0){
-            printf("Failed to open device\n");
-            continue;
-        }
-        
-        if (0 == data->id)
-        {
-            memcpy(txt, pattern1, strlen(pattern1));
-        }
-        else 
-        {
-            memcpy(txt, pattern2, strlen(pattern2));
-        }
+		if (0 == data->id) {
+			memcpy(txt, pattern1, strlen(pattern1));
+		} else {
+			memcpy(txt, pattern2, strlen(pattern2));
+		}
 
-        ret = write(fl, txt, strlen(txt));
-        memset(txt, 0, sizeof(txt));  
-        close(fl);
+		ret = write(fl, txt, strlen(txt));
+		memset(txt, 0, sizeof(txt));
+		close(fl);
 
-        fl = open(data->device, O_RDWR);
-      
-        read(fl, txt, sizeof(txt)); // Tu je nes
-        if (ret < 0) {
-            printf("Error reading file\n");
-            close(fl);
-            return NULL;
-        }
-        close(fl);
+		fl = open(data->device, O_RDWR);
 
+		read(fl, txt, sizeof(txt)); // Tu je nes
+		if (ret < 0) {
+			printf("Error reading file\n");
+			close(fl);
+			return NULL;
+		}
+		close(fl);
 
-        if (memcmp(txt, pattern1, strlen(txt)) && memcmp(txt, pattern2, strlen(pattern2)))
-        {
-            printf("NOT THE SAME\n");
-            printf("%s:%ld != %s:%ld \n", txt, strlen(txt), pattern1, strlen(pattern1));
-            printf("%s:%ld != %s:%ld \n", txt, strlen(txt), pattern2, strlen(pattern2));
-            break;
-        }
-    }
-    
-    printf("Read buffer: \"%s\" from Task%d\n", txt, data->id);
+		if (memcmp(txt, pattern1, strlen(txt)) &&
+		    memcmp(txt, pattern2, strlen(pattern2))) {
+			printf("NOT THE SAME\n");
+			printf("%s:%ld != %s:%ld \n", txt, strlen(txt),
+			       pattern1, strlen(pattern1));
+			printf("%s:%ld != %s:%ld \n", txt, strlen(txt),
+			       pattern2, strlen(pattern2));
+			break;
+		}
+	}
 
-    return NULL;
+	printf("Read buffer: \"%s\" from Task%d\n", txt, data->id);
 
+	return NULL;
 }
