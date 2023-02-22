@@ -80,8 +80,7 @@ static int mob_buffer_alloc(struct mob_dev *dev, size_t len)
 	}
 
 	if (!ret) {
-		dev->p_data =
-			(char *)kzalloc(len * sizeof(char), GFP_KERNEL);
+		dev->p_data = (char *)kzalloc(len * sizeof(char), GFP_KERNEL);
 		if (!dev->p_data) {
 			ret = -ENOMEM;
 			printk(KERN_WARNING "ERROR kmalloc p_data\n");
@@ -133,25 +132,25 @@ static int __init mob_init(void)
 		// Device allocation
 		result = mob_device_alloc(mob_nr_devs);
 
-	if (!result){
+	if (!result) {
 		// Buffer allocation
-		for(int it = 0; it < mob_nr_devs; it++){
-			result = mob_buffer_alloc(&mob_devices[it], DEVICE_MAX_SIZE);
+		for (int it = 0; it < mob_nr_devs; it++) {
+			result = mob_buffer_alloc(&mob_devices[it],
+						  DEVICE_MAX_SIZE);
 			if (result)
 				break;
 		}
 	}
 
-	if (!result){
-		for(int it = 0; it < mob_nr_devs; it++)
+	if (!result) {
+		for (int it = 0; it < mob_nr_devs; it++)
 			mob_setup_cdev(&mob_devices[it], it);
 	}
 
-	mob_devices->mode = SYNC_MODE_NONE;
+	mob_devices->mode = SYNC_MODE_CMPLT;
 
 	//Spinlock init
-	for (int it = 0; it < mob_nr_devs; it++)
-	{
+	for (int it = 0; it < mob_nr_devs; it++) {
 		if (SYNC_MODE_SPNLCK == mob_devices->mode) {
 			spinlock_dynamic_init(&mob_devices[it].spn_lck);
 		} else if (SYNC_MODE_SMPHR == mob_devices->mode) {
@@ -160,6 +159,7 @@ static int __init mob_init(void)
 		} else if (SYNC_MODE_CMPLT == mob_devices->mode) {
 			mob_sync_completition_init(&mob_devices[it].compl);
 		}
+
 	}
 
 	if (!result) {
@@ -203,19 +203,17 @@ static int mob_release(struct inode *inode, struct file *filp)
 void mob_cleanup_module(void)
 {
 	dev_t devno = MKDEV(mob_major, mob_minor);
-	for(int it = 0; it < mob_nr_devs; it++)
-	{
+	for (int it = 0; it < mob_nr_devs; it++) {
 		cdev_del(&(mob_devices[it].cdev));
 	}
 	/* freeing the memory */
 
-	for(int it = 0; it < mob_nr_devs; it++)
-	{
+	for (int it = 0; it < mob_nr_devs; it++) {
 		if ((mob_devices[it].p_data) != 0)
 			kfree(mob_devices[it].p_data);
 	}
 	printk(KERN_INFO "Kfree the string-memory\n");
-	
+
 	if ((mob_devices) != 0) {
 		kfree(mob_devices);
 		printk(KERN_INFO "Kfree mob_devices\n");
@@ -235,7 +233,7 @@ static ssize_t mob_read(struct file *filp, char __user *buf, size_t count,
 	MOB_PRINT("%s: len = %lu, offset = %llu\n, data_len = %d", __FUNCTION__,
 		  count, *f_pos, mob_devices->data_len);
 
-	MOB_PRINT("Mode %d\n", mdev->mode);	  
+	MOB_PRINT("Mode %d\n", mdev->mode);
 
 	if (mdev->mode == SYNC_MODE_SMPHR) {
 		MOB_PRINT("Taking read semaphore\n");
@@ -244,9 +242,7 @@ static ssize_t mob_read(struct file *filp, char __user *buf, size_t count,
 		mob_sync_wait_for_completion(&mdev->compl, SYNC_COMPLT_TIMEOUT);
 	}
 
-
-	if (*f_pos >= mdev->data_len)
-	{
+	if (*f_pos >= mdev->data_len) {
 		if (mdev->mode == SYNC_MODE_SMPHR) {
 			MOB_PRINT("Giving read semaphore\n");
 			mob_sync_semphr_give(&(mdev->semphr));
@@ -287,7 +283,7 @@ static ssize_t mob_write(struct file *filp, const char __user *buf,
 	MOB_PRINT("%s: len = %lu, offset = %llu\n", __FUNCTION__, count,
 		  *f_pos);
 
-	struct mob_dev *mdev = (struct mob_dev*)filp->private_data;
+	struct mob_dev *mdev = (struct mob_dev *)filp->private_data;
 
 	if (mdev->mode == SYNC_MODE_SMPHR) {
 		mob_sync_semphr_take(&mdev->semphr);
