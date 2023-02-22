@@ -157,6 +157,8 @@ static int __init mob_init(void)
 		} else if (SYNC_MODE_SMPHR == mob_devices->mode) {
 			MOB_PRINT("Initing semaphore\n");
 			mob_sync_semphr_init(&mob_devices[it].semphr);
+		} else if (SYNC_MODE_CMPLT == mob_devices->mode) {
+			mob_sync_completition_init(&mob_devices[it].compl);
 		}
 	}
 
@@ -238,6 +240,8 @@ static ssize_t mob_read(struct file *filp, char __user *buf, size_t count,
 	if (mdev->mode == SYNC_MODE_SMPHR) {
 		MOB_PRINT("Taking read semaphore\n");
 		mob_sync_semphr_take(&(mdev->semphr));
+	} else if (SYNC_MODE_CMPLT == mdev->mode) {
+		mob_sync_wait_for_completion(&mdev->compl, SYNC_COMPLT_TIMEOUT);
 	}
 
 
@@ -308,6 +312,8 @@ static ssize_t mob_write(struct file *filp, const char __user *buf,
 
 	if (mdev->mode == SYNC_MODE_SMPHR) {
 		mob_sync_semphr_give(&(mdev->semphr));
+	} else if (mdev->mode == SYNC_MODE_CMPLT) {
+		mob_sync_complete(&mdev->compl);
 	}
 
 	return retval;
