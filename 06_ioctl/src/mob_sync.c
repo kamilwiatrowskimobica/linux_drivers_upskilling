@@ -82,3 +82,34 @@ void mob_sync_complete(struct completion *comp)
 	MOB_PRINT("Completition from process %s\n", current->comm);
 	complete(comp);
 }
+
+
+void mob_sync_poll_queue_init(struct sync_poll *poll_str)
+{
+	init_waitqueue_head(&poll_str->queue);
+	poll_str->data = 0;
+}
+
+void mob_sync_poll_queue_wakeup(struct sync_poll *poll_struct)
+{
+	wake_up(&poll_struct->queue);
+	MOB_PRINT("Queue wakeup\n");
+	poll_struct->data = 1;
+}
+
+void mob_sync_poll_queue_wait(struct sync_poll *poll_str,
+				    struct file *p_fl,
+				    struct poll_table_struct *p_wait)
+{
+	poll_wait(p_fl, &poll_str->queue, p_wait);
+}
+
+void mob_sync_set_data(struct sync_poll *poll_str, int data)
+{
+	poll_str->data = data;
+}
+
+int mob_sync_get_data(struct sync_poll *poll_str)
+{
+	return poll_str->data;
+}
