@@ -17,9 +17,12 @@ static char recv[BUFF_LEN];
 void spinlock_test_exec(void);
 void semaphore_test_exec(void);
 void ioctl_test(void);
+void poll_test_exec(void);
 
 void *spinlock_test_function(void *p_data);
 void *semaphore_test_function(void *p_data);
+void *poll_write_test_function(void *p_data);
+void *poll_read_test_function(void *p_data);
 
 struct task_data {
 	int id;
@@ -32,7 +35,8 @@ int main(void)
 	//spinlock_test_exec();
 	//semaphore_test_exec();
 
-	ioctl_test();
+	//ioctl_test();
+	poll_test_exec();
 }
 
 void spinlock_test_exec()
@@ -184,21 +188,88 @@ void ioctl_test(void)
 
 	printf("Simple hello cmd\n");
 	ioctl(fl, MOB_DEVICE_HELLO, NULL);
-
-	ioctl(fl, MOB_DEVICE_READ, &ret);
-	printf("Before ioctl_var = %d\n", ret);
-
-	ret = 99;
+	
 
 	ioctl(fl, MOB_DEVICE_WRITE, &ret);
 	printf("New mode = %d\n", ret);
-
-	ret = 0;
 
 	ioctl(fl, MOB_DEVICE_READ, &ret);
 	printf("Current ioctl_var = %d\n", ret);
 	
 
 	close(fl);
+}
 
+void poll_test_exec(void)
+{
+	printf("Poll test inc...\n");
+
+	const char *testing_device_zero = "/dev/mobchar0";
+
+	struct task_data td0 = {
+		.id = 0,
+	};
+	struct task_data td1 = {
+		.id = 1,
+	};
+
+	pthread_t th0, th1;
+
+	strncpy(td0.device, testing_device_zero, sizeof(td0.device));
+	strncpy(td1.device, testing_device_zero, sizeof(td1.device));
+
+	pthread_create(&th0, NULL, poll_read_test_function, &td0);
+	pthread_create(&th1, NULL, poll_write_test_function, &td1);
+
+	pthread_join(th0, NULL);
+	pthread_join(th1, NULL);
+}
+
+void *poll_write_test_function(void *p_data)
+{
+	int fd;
+	struct task_data *p_td = p_data;
+	const char* w_const = "Written data!";
+	printf("In poll write thd\n");
+
+	if ((fd = open(p_td->device, O_RDWR)) < 0)
+	{
+		printf("Failed to open device \n");
+		pthread_exit(&p_td->id);
+	}
+
+	sleep(5);
+	write(fd, w_const, strlen(w_const));
+	
+	close(fd);
+
+	return NULL;
+}
+
+void *poll_read_test_function(void *p_data)
+{
+	int fd;
+	int ret;
+	char r_buf[20] = {0};
+	struct pollfd pfd;
+	struct task_data *p_td = p_data;
+	printf("In poll read thd\n");
+
+	if ((fd = open(p_td->device, O_RDWR)) < 0) 
+	{
+		printf("Failed to open device \n");
+		pthread_exit(&p_td->id);
+	}
+
+	pfd.fd = fd;
+	pfd.events = (POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM);
+	ret = poll(&pfd, (unsigned long)1, 10000);
+	if (pfd.revents & POLLIN)
+	{
+		read(fd, r_buf, sizeof(r_buf));
+	}	
+	printf("Read item -- %s\n", r_buf);
+	close(fd);
+
+	return NULL;
 }
