@@ -156,7 +156,7 @@ static int __init mob_init(void)
 			mob_setup_cdev(&mob_devices[it], it);
 	}
 
-	mob_devices->mode = SYNC_MODE_CMPLT;
+	mob_devices->mode = SYNC_MODE_POLL;
 
 	//Spinlock init
 	for (int it = 0; it < mob_nr_devs; it++) {
@@ -167,8 +167,9 @@ static int __init mob_init(void)
 			mob_sync_semphr_init(&mob_devices[it].semphr);
 		} else if (SYNC_MODE_CMPLT == mob_devices->mode) {
 			mob_sync_completition_init(&mob_devices[it].compl);
+		} else if (SYNC_MODE_POLL == mob_devices->mode) {
+			mob_sync_poll_queue_init(&mob_devices[it].poll);
 		}
-
 	}
 
 	if (!result) {
@@ -319,6 +320,8 @@ static ssize_t mob_write(struct file *filp, const char __user *buf,
 		mob_sync_semphr_give(&(mdev->semphr));
 	} else if (mdev->mode == SYNC_MODE_CMPLT) {
 		mob_sync_complete(&mdev->compl);
+	} else if (mdev->mode == SYNC_MODE_POLL) {
+		mob_sync_poll_queue_wakeup(&mdev->poll);
 	}
 
 	return retval;
@@ -326,7 +329,23 @@ static ssize_t mob_write(struct file *filp, const char __user *buf,
 
 static unsigned int mob_poll(struct file *p_fl, struct poll_table_struct *p_tbl)
 {
-	return 0;
+	__poll_t mask = 0;
+	struct mob_dev *mdev = (struct mob_dev *)p_fl->private_data;
+
+	if (SYNC_MODE_POLL != mdev->mode) {
+		mask = (POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM);
+	} else {
+		mob_sync_poll_queue_wait(&mdev->poll, p_fl, p_tbl);
+		MOB_PRINT("In poll function \n");
+
+		if (mob_sync_get_data(&mdev->poll)) {
+			mob_sync_set_data(&mdev->poll, 0);
+			MOB_PRINT("Settings read mask\n");
+			mask |= (POLLIN | POLLRDNORM);
+		}
+	}
+	MOB_PRINT("Exiting poll function \n");
+	return mask;
 }
 
 static long mob_ioctl(struct file *p_fl, unsigned int cmd, unsigned long arg)

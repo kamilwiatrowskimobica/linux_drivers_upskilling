@@ -19,9 +19,9 @@ struct mob_dev {
 	union {
 		struct semaphore semphr;
 		struct completion compl;
+		struct sync_poll poll;
 	};
 	spinlock_t spn_lck;
 };
-
 
 #endif /* _MOB_CHAR_H_ */
