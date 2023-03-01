@@ -1,0 +1,13 @@
+#ifndef _MOBCHAR_IOCTL_H_
+#define _MOBCHAR_IOCTL_H_
+
+#include <linux/ioctl.h>
+
+#define MOBCHAR_IOC_MAGIC  'K'
+#define MOBCHAR_IOC_MAXNR  (3)
+
+#define MOBCHAR_IOC_HELLO _IO(MOBCHAR_IOC_MAGIC, 0)
+#define MOBCHAR_IOC_READ  _IOR(MOBCHAR_IOC_MAGIC, 1, int)
+#define MOBCHAR_IOC_WRITE _IOW(MOBCHAR_IOC_MAGIC, 2, int)
+
+#endif // _MOBCHAR_IOCTL_H_
