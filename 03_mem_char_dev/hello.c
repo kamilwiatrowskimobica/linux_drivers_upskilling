@@ -22,6 +22,8 @@
 
 #include "hello.h"
 
+#define DEV_NAME "hello"
+
 int hello_major = 0;
 int hello_minor = 0;
 unsigned int hello_nr_devs = 1;
@@ -109,7 +111,6 @@ ssize_t hello_write(struct file *filp, const char __user *buf, size_t count,
 		    loff_t *f_pos)
 {
 	int retval = 0;
-	struct hello_dev *dev = filp->private_data;
 	if (count > device_max_size) {
 		printk(KERN_WARNING
 		       "[LEO] hello: trying to write more than possible. Aborting write\n");
@@ -176,10 +177,12 @@ static int hello_init(void)
 		       hello_major);
 		dev = MKDEV(hello_major, hello_minor);
 		result = register_chrdev_region(dev, hello_nr_devs, "hello");
+		//result = register_chrdev_region(dev, hello_nr_devs, DEV_NAME);
 	} else {
 		printk(KERN_INFO "[LEO] dinamic allocation of major number\n");
 		result = alloc_chrdev_region(&dev, hello_minor, hello_nr_devs,
 					     "hello");
+					     //DEV_NAME);
 		hello_major = MAJOR(dev);
 	}
 	if (result < 0) {
@@ -189,14 +192,18 @@ static int hello_init(void)
 	}
 
 	hello_devices =
+		//kmalloc(hello_nr_devs * sizeof(struct hello_dev), GFP_KERNEL);
 		kmalloc(hello_nr_devs * sizeof(struct hello_dev), GFP_KERNEL);
+		//kzalloc(hello_nr_devs * sizeof(struct hello_dev), GFP_KERNEL);
 	if (!hello_devices) {
 		result = -ENOMEM;
 		printk(KERN_WARNING "[LEO] ERROR kmalloc dev struct\n");
+		//printk(KERN_WARNING "[LEO] ERROR kzalloc dev struct\n");
 		goto fail; /* Make this more graceful */
 	}
 
 	memset(hello_devices, 0, hello_nr_devs * sizeof(struct hello_dev));
+	//memset(hello_devices, 0, hello_nr_devs * sizeof(struct hello_dev));
 	/* Initialize the device. */
 
 	hello_devices->p_data =
