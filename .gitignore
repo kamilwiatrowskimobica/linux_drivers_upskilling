@@ -53,3 +53,7 @@ dkms.conf
 
 # Test execs
 test
+test_*
+
+# Private notes
+notes.md
