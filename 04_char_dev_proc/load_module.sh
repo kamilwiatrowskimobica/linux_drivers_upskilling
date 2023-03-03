@@ -24,8 +24,11 @@ PARAM_DIR=" /sys/module/${module_name}/parameters"
 #        exit
 #fi
 
-ADDRESS=$(sudo grep hello /proc/modules |awk '{print $6}')
-objdump -dS --adjust-vma=$(ADDRESS) hello.ko
+#ADDRESS=$(sudo grep hello /proc/modules |awk '{print $6}')
+ADDRESS=`sudo grep hello /proc/modules |awk '{print $6}'`
+echo "ADDRESS=${ADDRESS} (taken from /proc/modules)"
+echo "OBJDUMP"
+objdump -dS --adjust-vma=${ADDRESS} hello.ko
 
 modinfo ${module_file}
 
@@ -33,6 +36,7 @@ modinfo ${module_file}
 #reload module
 if [[ $(lsmod|grep -c ${module_name} ) == 1 ]] ; then
 	rmmod ${module_name}
+	rm -fvI /dev/${device}[0-3]
 fi
 insmod ${module_file} $* || exit 1
 
@@ -50,7 +54,6 @@ cat /proc/devices|grep ${device}
 major=$(awk "\$2==\"${device}\" {print \$1}" /proc/devices)
 # retrieve major number (returns random, not necessarily the last assigned)
 #major=$(awk "\$2==\"${device}\" {print \$1; exit}" /proc/devices)
-#rm -f /dev/${device}[0-3]
 # create a char device with og+rw permissions
 mknod -m og+rw /dev/${device}0 c ${major} 0
 ##mknod /dev/${device}0 c ${major} 0

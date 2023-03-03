@@ -54,13 +54,7 @@ MODULE_VERSION("0.1");
 static int majorNumber = 0;
 static int minorNumber = 0;
 static int nr_devs = 1;
-static char message[MAX_MESSAGE_LEN] = {
-	0
-}; ///< string that is passed from userspace
-static short size_of_message; ///< size of the string stored
 static int numberOpens = 0; ///< Counts the number of times the device is opened
-static struct class *hellodrvcharClass = NULL;
-static struct device *hellodrvcharDevice = NULL;
 struct hello_dev *hello_devices = NULL;
 #ifdef MTLE_DEBUG
 #pragma GCC pop_options
@@ -121,10 +115,8 @@ static struct seq_operations ct_seq_ops = {
 //	.release = seq_release
 //};
 static struct proc_ops ct_file_ops = {
-//	.owner   = THIS_MODULE,
 	.proc_open    = ct_open,
 	.proc_read    = seq_read,
-	//.proc_llseek  = seq_lseek,
 	.proc_lseek  = seq_lseek,
 	.proc_release = seq_release
 };
@@ -166,7 +158,6 @@ static int ct_seq_show(struct seq_file *s, void *v)
 {
 	loff_t *spos = (loff_t *) v;
 	seq_printf(s, "%Ld\n", *spos);
-	msleep_interruptible(100);
 	return 0;
 }
 
@@ -184,7 +175,6 @@ int hello_trim(struct hello_dev *dev)
 static void hello_setup_cdev(struct hello_dev *dev, int index)
 {
 	int err, devno = MKDEV(majorNumber, minorNumber + index);
-	mode_t mode =  S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH; // character device
 #ifdef MTLE_DEBUG
 		printk(KERN_INFO "Adding cdev%d:%d\n", MAJOR(devno), MINOR(devno));
 #endif
@@ -203,55 +193,9 @@ static void hello_setup_cdev(struct hello_dev *dev, int index)
         {
                 printk(KERN_NOTICE "Error allocating mem fir device data\n");
         }
-//	err = mknod(DEV, mode, devno);
-//	if (err)
-//		printk(KERN_NOTICE "Error %d adding mknod %d", err, index);
 }
 static int hello_init(void)
 {
-//	long rc = 0;
-//
-//	majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
-//	if (majorNumber < 0) {
-//		printk(KERN_ALERT "Failed to register a major number\n");
-//		return majorNumber;
-//	}
-//
-//	// Register the device class
-//	hellodrvcharClass = class_create(THIS_MODULE, CLASS_NAME);
-//	if (IS_ERR(hellodrvcharClass)) {
-//		printk(KERN_ALERT "Failed to register device class\n");
-//		rc = PTR_ERR(
-//			hellodrvcharClass); // Correct way to return an error on a pointer
-//		goto err_class;
-//	}
-//
-//	// Register the device driver
-//	hellodrvcharDevice = device_create(hellodrvcharClass, NULL,
-//					   MKDEV(majorNumber, 0), NULL,
-//					   DEVICE_NAME);
-//	if (IS_ERR(hellodrvcharDevice)) { // Clean up if there is an error
-//		printk(KERN_ALERT "Failed to create the device\n");
-//		rc = PTR_ERR(hellodrvcharDevice);
-//		goto err_dev;
-//	}
-//	printk(KERN_INFO "%s: device class created correctly\n",
-//	       DEVICE_NAME); // Made it! device was initialized
-//
-//	printk(KERN_INFO "MODULE LOADED\n");
-//	return rc;
-//
-//err_dev:
-//	device_destroy(hellodrvcharClass, MKDEV(majorNumber, 0));
-//err_class:
-//	class_destroy(hellodrvcharClass);
-//	//TODO is unregister_chrdev() unnecessary?
-//	unregister_chrdev(majorNumber, DEVICE_NAME);
-//	return rc;
-//
-
-
-
 	int result, i;
 	dev_t dev = 0;
         struct proc_dir_entry *entry;
@@ -296,15 +240,6 @@ static int hello_init(void)
                 hello_setup_cdev(&hello_devices[i], i);
         }
 
-//        /* At this point call the init function for any friend device */
-// //TODO       
-//	dev = MKDEV(majorNumber, minorNumber + nr_devs);
-//	dev += scull_p_init(dev);
-//	dev += scull_access_init(dev);
-//#ifdef SCULL_DEBUG /* only when debugging */
-//	scull_create_proc();
-//#endif
-
 
         // seq_file
         // https://www.kernel.org/doc/html/next/filesystems/seq_file.html
@@ -340,26 +275,6 @@ static int dev_open(struct inode *inode, struct file *file)
 
 static ssize_t dev_read(struct file *filep, char *buf, size_t len,
 			loff_t *off)
-//{
-//	int error_count = 0;
-//	// copy_to_user has the format ( * to, *from, size) and returns 0 on success
-//	error_count = copy_to_user(buffer, message, size_of_message);
-//
-//	if (error_count == 0) {
-//		printk(KERN_INFO "%s: Sent %d characters to the user\n",
-//		       DEVICE_NAME, size_of_message);
-//		return (size_of_message = 0);
-//	} else {
-//		printk(KERN_INFO
-//		       "%s: Failed to send %d characters to the user\n",
-//		       DEVICE_NAME, error_count);
-//		return -EFAULT;
-//	}
-//}
-//
-//
-//static ssize_t mobdev_read(struct file *filp, char __user *buf, size_t len,
-//			   loff_t *off)
 {
 	hello_dev *hdev = (struct hello_dev *)filep->private_data;
 	size_t size = hdev->size - *off;
@@ -416,21 +331,19 @@ static ssize_t dev_write(struct file *filp, const char *buffer, size_t len,
 		return -ENOBUFS;
 	}
 
-	//left = copy_from_user(message, buffer, len);
 	left = copy_from_user(hdev->p_data, buffer, len);
 	if (left) {
 		printk(KERN_INFO
 		       "%s: problem on receiving characters from the user\n",
 		       DEVICE_NAME);
 	}
-//
+
 	if (len + *off > hdev->size)
 		hdev->size = len + *off;
 	*off += len;
-//
+
 	printk(KERN_INFO "%s: Received %zu characters from the user\n",
 	       DEVICE_NAME, len);
-	//printk(KERN_INFO "%s: Received message: %s\n", DEVICE_NAME, message);
 	printk(KERN_INFO "%s: Received message: %s\n", DEVICE_NAME, hdev->p_data);
 	return len;
 }
@@ -441,18 +354,8 @@ static int dev_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static void __exit hello_exit(void)
+static void hello_exit(void)
 {
-//	device_destroy(hellodrvcharClass,
-//		       MKDEV(majorNumber, 0)); // remove the device
-//	class_unregister(hellodrvcharClass); // unregister the device class
-//	class_destroy(hellodrvcharClass); // remove the device class
-//	//TODO is unregister_chrdev() unnecessary?
-//	unregister_chrdev(majorNumber,
-//			  DEVICE_NAME); // unregister the major number
-
-
-
 	int i;
 	dev_t devno = MKDEV(majorNumber, minorNumber);
 
@@ -465,20 +368,11 @@ static void __exit hello_exit(void)
 		kfree(hello_devices);
 	}
 
-//#ifdef SCULL_DEBUG /* use proc only if debugging */
-//	scull_remove_proc();
-//#endif
-
 	/* cleanup_module is never called if registering failed */
 	unregister_chrdev_region(devno, nr_devs);
 
-//	/* and call the cleanup functions for friend devices */
-//	scull_p_cleanup();
-//	scull_access_cleanup();
-
 
         remove_proc_entry("mtle_sequence", NULL);
-
 
 	printk(KERN_INFO "MODULE UNLOADED\n");
 }
