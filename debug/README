@@ -1,0 +1,16 @@
+This files should not be treated as scripts, but rather as notes on
+how to do that on Fedora 37. The sources were downloaded from
+https://www.kernel.org/ as a tarball and untarred with simple "tar -x"
+
+debug/VirtualBoxSetup.md        -how to setup VBox environment
+debug/build_kernel.md           -how to build kernel with right config
+debug/hostSetup.md              -setup host and run gdb (kgdboc)
+debug/mod_kernel_boot_param.md  -what kernel boot parameters to set
+debug/gdbline                   -create line to provide to gdb on host
+
+can echo on taget and cat on host to check correctness of connection
+target: `printf "foo\r" > /dev/ttyS0`
+hots:   `cat /dev/ttyS0` should print the "foo"
+
+kgdbwait (boot param) can be ommited if no waiting for gdb on boot
+process is required.
