@@ -166,11 +166,12 @@ static __init int mobdev_init(void)
 		}
 	}
 
-	if (request_irq(IRQ_NO, irq_handler, IRQF_SHARED, DEVICE_NAME, (void *)(irq_handler))) {
+	if (request_irq(IRQ_NO, irq_handler, IRQF_SHARED, DEVICE_NAME,
+			(void *)(irq_handler))) {
 		pr_warn(DEVICE_NAME ": cannot register IRQ\n");
 		result = -EFAULT;
 		goto clean_cdevs;
-    }
+	}
 
 	pr_info("mobdev_init done\n");
 	return 0;
