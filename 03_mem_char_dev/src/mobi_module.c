@@ -134,13 +134,14 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 	size_t size = mdev->msg_size - *offset;
 
 	if (!mdev) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+			__FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (*offset > mdev->msg_size) {
-		printk(KERN_ALERT "MOBChar: error offset%lld\n", *offset);
-		return -EFAULT;
+		size = 0;
+		goto END;
 	}
 
 	if (*offset + len > mdev->msg_size)
@@ -157,9 +158,10 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 	mdev->msg_size -= size;
 	*offset += size;
 
+END:
 	printk(KERN_INFO "MOBChar: %s_%d Sent %ld characters to user\n",
 	       MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), size);
-	// clear the position to the start and return 0
+
 	return size;
 }
 
@@ -170,12 +172,14 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 	int result = 0;
 
 	if (mdev == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+			__FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev msg\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
+			__FUNCTION__);
 		return -EFAULT;
 	}
 
@@ -211,12 +215,14 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	       offset, whence);
 
 	if (mdev == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+			__FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev msg\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
+			__FUNCTION__);
 		return -EFAULT;
 	}
 
