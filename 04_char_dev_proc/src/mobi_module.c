@@ -6,14 +6,14 @@
 #include <linux/uaccess.h> // Required for the copy to user function
 #include <linux/slab.h> // kmalloc()
 #include <linux/cdev.h>
-#include <linux/kdev_t.h>
-#include <linux/proc_fs.h>	/* Necessary because we use proc fs */
-#include <linux/seq_file.h>	/* for seq_file */
+#include <linux/proc_fs.h> /* Necessary because we use proc fs */
+#include <linux/seq_file.h> /* for seq_file */
 
 #include "mobi_module.h"
 
 ///< The device will appear at /dev/mob using this value
 #define MOB_DEVICE_NAME "mob"
+#define PROC_FS_NAME "mobi_module"
 ///< The device class -- this is a character device driver
 #define CLASS_NAME "lukr"
 #define DEVICE_NAME_FORMAT "%s_%zu"
@@ -43,19 +43,32 @@ static int mobdev_release(struct inode *, struct file *);
 static ssize_t mobdev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t mobdev_write(struct file *, const char *, size_t, loff_t *);
 static loff_t mobdev_llseek(struct file *, loff_t, int);
+// The prototype functions for seq_operations
+static int mobdev_seq_open(struct inode *, struct file *);
+static void *mobdev_seq_start(struct seq_file *, loff_t *);
+static void *mobdev_seq_next(struct seq_file *, void *, loff_t *);
+static void mobdev_seq_stop(struct seq_file *, void *);
+static int mobdev_seq_show(struct seq_file *, void *);
 
-/// A macro that is used to declare a new mutex that is visible in this file
-/// results in a semaphore variable mob_mutex with value 1 (unlocked)
-/// DEFINE_MUTEX_LOCKED() results in a variable with value 0 (locked)
-// static DEFINE_MUTEX(mob_mutex);
-
-static struct file_operations fops = {
+static struct file_operations f_ops = {
+	.owner = THIS_MODULE,
 	.open = mobdev_open,
 	.read = mobdev_read,
 	.write = mobdev_write,
 	.release = mobdev_release,
 	.llseek = mobdev_llseek,
 };
+
+static struct seq_operations seq_ops = { .start = mobdev_seq_start,
+					 .next = mobdev_seq_next,
+					 .stop = mobdev_seq_stop,
+					 .show = mobdev_seq_show };
+
+static const struct file_operations seq_fops = { .owner = THIS_MODULE,
+						 .open = mobdev_seq_open,
+						 .read = seq_read,
+						 .llseek = seq_lseek,
+						 .release = seq_release };
 
 typedef enum {
 	CLEANUP_U_REGION = 1,
@@ -64,6 +77,11 @@ typedef enum {
 	CLEANUP_DEVS = 8,
 	CLEANUP_ALL = 15
 } type_of_cleanup_t;
+
+static int mobdev_seq_open(struct inode *inode, struct file *filep)
+{
+	return seq_open(filep, &seq_ops);
+}
 
 /**
  * This function is called at the beginning of a sequence.
@@ -74,10 +92,10 @@ typedef enum {
  */
 static void *mobdev_seq_start(struct seq_file *s, loff_t *pos)
 {
-	if ( *pos >= dev_count)
-		return NULL;
-	printk(KERN_INFO "MOBChar: seq_start\n");
- 
+	printk(KERN_INFO "MOBChar: %s pos %lld dev_count %d\n", __FUNCTION__,
+	       *pos, dev_count);
+	if (*pos >= dev_count || *pos < 0)
+		return NULL; /* No more to read */
 	return mob_devices + *pos;
 }
 
@@ -89,65 +107,34 @@ static void *mobdev_seq_start(struct seq_file *s, loff_t *pos)
 static void *mobdev_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
 	(*pos)++;
-	if ( *pos >= dev_count)
+	printk(KERN_INFO "MOBChar: %s pos %lld dev_count %d\n", __FUNCTION__,
+	       *pos, dev_count);
+	if (*pos >= dev_count)
 		return NULL;
-	printk(KERN_INFO "MOBChar: seq_next\n");
 
 	return mob_devices + *pos;
 }
 
-/**
- * This function is called at the end of a sequence
- * 
- */
 static void mobdev_seq_stop(struct seq_file *s, void *v)
 {
-	printk(KERN_INFO "MOBChar: seq_stop\n");
+	// printk(KERN_INFO "MOBChar: %s\n", __FUNCTION__);
 }
 
-/**
- * This function is called for each "step" of a sequence
- *
- */
 static int mobdev_seq_show(struct seq_file *s, void *v)
 {
 	struct mob_dev *mdev = (struct mob_dev *)v;
 
-	if (!mdev) {
-		printk(KERN_ALERT "error accessing mob_dev\n");
+	if (mdev == NULL) {
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
-	seq_printf(s, DEVICE_NAME_FORMAT", msg size = %zu\n",
-		MOB_DEVICE_NAME,
-		(size_t)(mdev - mob_devices),
-		mdev->msg_size);
+	seq_printf(s, "MOBChar: %s_%zu, msg[%zu B]: %s\n", MOB_DEVICE_NAME,
+		   (size_t)(mdev - mob_devices), mdev->msg_size, mdev->msg);
 
 	return 0;
 }
-
-/**
- * This structure gather "function" to manage the sequence
- *
- */
-static struct seq_operations seq_ops = {
-	.start = mobdev_seq_start,
-	.next  = mobdev_seq_next,
-	.stop  = mobdev_seq_stop,
-	.show  = mobdev_seq_show
-};
-
-// static int mobdev_proc_open(struct inode *inode, struct  file *file) {
-//   return single_open(file, mobdev_seq_show, NULL);
-// }
-
-// static const struct proc_ops proc_fops = {
-//   .proc_open = mobdev_proc_open,
-//   .proc_read = seq_read,
-//   .proc_lseek = seq_lseek,
-//   .proc_release = single_release,
-// };
-
 
 static void mobdev_clean_cdev(struct mob_dev *mdev)
 {
@@ -191,10 +178,6 @@ void exit_handler(uint type_c)
 
 static int mobdev_open(struct inode *inodep, struct file *filep)
 {
-	// if (!mutex_trylock(&mob_mutex)) {
-	// 	printk(KERN_ALERT "MOBChar: Device in use by another process");
-	// 	return -EBUSY;
-	// }
 	struct mob_dev *mdev;
 	mdev = container_of(inodep->i_cdev, struct mob_dev, cdev);
 	filep->private_data = mdev; /* for other methods */
@@ -202,13 +185,11 @@ static int mobdev_open(struct inode *inodep, struct file *filep)
 	printk(KERN_INFO "MOBChar: Device has been opened %d time(s)\n",
 	       ++number_opens);
 
-	// return single_open(filep, mobdev_seq_show, NULL);
-	return seq_open(filep, &seq_ops);
+	return 0;
 }
 
 static int mobdev_release(struct inode *inodep, struct file *filep)
 {
-	// mutex_unlock(&mob_mutex);
 	printk(KERN_INFO "MOBChar: Device [%d] successfully closed\n",
 	       number_opens--);
 	return 0;
@@ -222,13 +203,14 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 	size_t size = mdev->msg_size - *offset;
 
 	if (!mdev) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (*offset > mdev->msg_size) {
-		printk(KERN_ALERT "MOBChar: error offset%lld\n", *offset);
-		return -EFAULT;
+		size = 0;
+		goto END;
 	}
 
 	if (*offset + len > mdev->msg_size)
@@ -245,9 +227,10 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 	mdev->msg_size -= size;
 	*offset += size;
 
+END:
 	printk(KERN_INFO "MOBChar: %s_%d Sent %ld characters to user\n",
 	       MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), size);
-	// clear the position to the start and return 0
+
 	return size;
 }
 
@@ -258,12 +241,14 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 	int result = 0;
 
 	if (mdev == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev msg\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
@@ -299,12 +284,14 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	       offset, whence);
 
 	if (mdev == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
-		printk(KERN_ALERT "MOBChar: error accessing mob_dev msg\n");
+		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
@@ -343,8 +330,7 @@ static int mobdev_init_cdev(struct mob_dev *mdev, size_t index)
 	dev_t dev = MKDEV(major_number, index);
 	struct device *mob_device = NULL;
 
-	cdev_init(&mdev->cdev, &fops);
-	mdev->cdev.owner = THIS_MODULE;
+	cdev_init(&mdev->cdev, &f_ops);
 
 	mdev->msg = kcalloc(1, MOB_MESSAGE_LEN, GFP_KERNEL);
 	if (IS_ERR(mdev->msg)) {
@@ -377,28 +363,7 @@ static int __init mobdev_init(void)
 	dev_t dev = 0;
 	int result = 0;
 	int i = 0;
-
-	// struct proc_dir_entry *entry;
-	// entry = proc_create("mobdev_simple", 0, NULL, &procsimple_pops);
-	// entry = proc_create_single("mobdev_simple", 0, NULL,
-	// 			   mobdev_read_procsimple);
-	// if (!entry)
-	// 	pr_warn("Proc simple entry not created!\n");
-	// entry = proc_create("mobdev_seq", 0, NULL, &proc_fops);
-	// if (!entry)
-	// 	pr_warn("Proc seq entry not created!\n");
-
-#ifdef HAVE_PROC_CREATE_SINGLE
-	proc_create_single(MOB_DEVICE_NAME, 0, NULL, mobdev_seq_show);
-#else
-	proc_create(MOB_DEVICE_NAME, 0, NULL, &fops);
-#endif
-	// struct proc_dir_entry *entry;
-
-	// entry = create_proc_entry(MOB_DEVICE_NAME, 0, NULL);
-	// if (entry) {
-	// 	entry->proc_fops = &fops;
-	// }
+	struct proc_dir_entry *entry;
 
 	result = alloc_chrdev_region(&dev, 0, dev_count, MOB_DEVICE_NAME);
 	if (result < 0) {
@@ -433,8 +398,12 @@ static int __init mobdev_init(void)
 		}
 	}
 
-	/// Initialize the mutex lock dynamically at runtime
-	// mutex_init(&mob_mutex);
+	// Create entry point in /proc folder
+	entry = proc_create(PROC_FS_NAME, 0, NULL, &seq_fops);
+	if (entry == NULL) {
+		printk(KERN_ALERT "MOBChar: proc_create failure\n");
+		return -ENOMEM;
+	}
 
 	printk(KERN_INFO "MOBChar: Init LKM correctly with major number %d\n",
 	       major_number);
@@ -444,7 +413,7 @@ static int __init mobdev_init(void)
 static void __exit mobdev_exit(void)
 {
 	exit_handler(CLEANUP_ALL);
-	remove_proc_entry(MOB_DEVICE_NAME, NULL);
+	remove_proc_entry(PROC_FS_NAME, NULL);
 	printk(KERN_INFO "MOBChar: Goodbye from the LKM!\n");
 }
 
