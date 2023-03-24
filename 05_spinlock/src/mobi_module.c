@@ -53,7 +53,6 @@ typedef enum {
 	CLEANUP_ALL = 15
 } type_of_cleanup_t;
 
-
 static void mobdev_clean_cdev(struct mob_dev *mdev)
 {
 	if (mdev == NULL)
@@ -61,8 +60,8 @@ static void mobdev_clean_cdev(struct mob_dev *mdev)
 
 	if (mdev->msg)
 		kfree(mdev->msg);
-	
-	//destroy locks	
+
+	//destroy locks
 	lock_deinit(mdev, lock_mutex);
 
 	device_destroy(mob_class, mdev->cdev.dev);
@@ -103,14 +102,14 @@ static int mobdev_open(struct inode *inodep, struct file *filep)
 	mdev = container_of(inodep->i_cdev, struct mob_dev, cdev);
 	if (!mdev) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	filep->private_data = mdev; /* for other methods */
 
 	printk_ratelimited(KERN_INFO "MOBChar: Device [%ld] has been opened\n",
-	       mdev->id);
+			   mdev->id);
 	return 0;
 }
 
@@ -119,7 +118,8 @@ static int mobdev_release(struct inode *inodep, struct file *filep)
 	struct mob_dev *mdev;
 	mdev = container_of(inodep->i_cdev, struct mob_dev, cdev);
 	if (mdev)
-		printk_ratelimited(KERN_INFO "MOBChar: Device [%ld] successfully closed\n",
+		printk_ratelimited(
+			KERN_INFO "MOBChar: Device [%ld] successfully closed\n",
 			mdev->id);
 	return 0;
 }
@@ -133,11 +133,11 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 	if (!mdev) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
-	lock(mdev, lock_action_read);
+	lock(mdev, lock_action_spinlock);
 	size = mdev->msg_size - *offset;
 
 	if (*offset > mdev->msg_size) {
@@ -150,7 +150,7 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 	result = copy_to_user(buffer, mdev->msg + *offset, size);
 	if (result != 0) {
-		unlock(mdev, lock_action_read);
+		unlock(mdev, lock_action_spinlock);
 		printk(KERN_ALERT
 		       "MOBChar: Failed to send %d characters to the user\n",
 		       result);
@@ -162,10 +162,11 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 END:
 
-	unlock(mdev, lock_action_read);
+	unlock(mdev, lock_action_spinlock);
 
-	printk_ratelimited(KERN_INFO "MOBChar: %s_%d Sent %ld characters to user\n",
-	       MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), size);
+	printk_ratelimited(KERN_INFO
+			   "MOBChar: %s_%d Sent %ld characters to user\n",
+			   MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), size);
 
 	return size;
 }
@@ -178,27 +179,27 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 
 	if (mdev == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
-	lock(mdev, lock_action_write);
+	lock(mdev, lock_action_spinlock);
 
 	if (len + *offset > MOB_MESSAGE_LEN) {
-		unlock(mdev, lock_action_write);
+		unlock(mdev, lock_action_spinlock);
 		printk(KERN_ALERT "MOBChar: User msg to big\n");
 		return -EMSGSIZE;
 	}
 
 	result = copy_from_user(mdev->msg + *offset, buffer, len);
 	if (result != 0) {
-		unlock(mdev, lock_action_write);
+		unlock(mdev, lock_action_spinlock);
 		printk(KERN_ALERT
 		       "MOBChar: Failed to send %d characters from user\n",
 		       result);
@@ -208,11 +209,12 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 	mdev->msg_size = len + *offset;
 	*offset += len;
 
-	unlock(mdev, lock_action_write);
+	unlock(mdev, lock_action_spinlock);
 
-	printk_ratelimited(KERN_INFO
-	       "MOBChar: %s_%d Received %zu characters from the user\n",
-	       MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), len);
+	printk_ratelimited(
+		KERN_INFO
+		"MOBChar: %s_%d Received %zu characters from the user\n",
+		MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), len);
 
 	return len;
 }
@@ -223,30 +225,30 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	int result;
 	struct mob_dev *mdev = (struct mob_dev *)filep->private_data;
 
-	printk_ratelimited(KERN_INFO "MOBChar: llseek, offset = %lld, whence = %d\n",
-	       offset, whence);
+	printk_ratelimited(KERN_INFO
+			   "MOBChar: llseek, offset = %lld, whence = %d\n",
+			   offset, whence);
 
 	if (mdev == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
-	// result = lock(mdev, lock_action_mutex);
-	result = lock(mdev, lock_action_read);
+	result = lock(mdev, lock_action_spinlock);
 	if (result != 0)
 		return result;
 
 	switch (whence) {
 	case SEEK_SET:
 		if (offset >= MOB_MESSAGE_LEN) {
-			unlock(mdev, lock_action_read);
+			unlock(mdev, lock_action_spinlock);
 			return -EFBIG;
 		}
 		npos = offset;
@@ -254,7 +256,7 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 
 	case SEEK_CUR:
 		if (filep->f_pos + offset >= MOB_MESSAGE_LEN) {
-			unlock(mdev, lock_action_read);
+			unlock(mdev, lock_action_spinlock);
 			return -EFBIG;
 		}
 		npos = filep->f_pos + offset;
@@ -263,7 +265,7 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	case SEEK_END:
 
 		if (mdev->msg_size + offset >= MOB_MESSAGE_LEN) {
-			unlock(mdev, lock_action_read);
+			unlock(mdev, lock_action_spinlock);
 			return -EFBIG;
 		}
 		npos = mdev->msg_size + offset;
@@ -276,8 +278,7 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	if (npos < 0)
 		return -EINVAL;
 	filep->f_pos = npos;
-	// unlock(mdev, lock_action_mutex);
-	unlock(mdev, lock_action_read);
+	unlock(mdev, lock_action_spinlock);
 
 	return npos;
 }
@@ -302,7 +303,7 @@ static int mobdev_init_cdev(struct mob_dev *mdev, size_t index)
 		printk(KERN_ALERT "MOBChar: failed to add cdev\n");
 		return result;
 	}
-	lock_init(mdev, lock_mutex | lock_rw_spinlock);
+	lock_init(mdev, lock_spinlock);
 	mdev->id = index;
 
 	// Register the device driver
@@ -371,8 +372,6 @@ static void __exit mobdev_exit(void)
 
 module_init(mobdev_init);
 module_exit(mobdev_exit);
-
-
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lukasz Krakowiak");

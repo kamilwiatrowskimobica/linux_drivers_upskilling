@@ -37,7 +37,7 @@ void* writing_thread(void *arg)
 				perror("writing_thread: Failed to write the msg to the device.");
 				break;
 			}
-			printf("[%i] Wrote [%d bytes] msg:    [%s]\n", (i+1)*(j+1), ret, data->msg);
+			// printf("[%i] Wrote [%d bytes] msg:    [%s]\n", (i+1)*(j+1), ret, data->msg);
 
 			ret = lseek(fd, 0, SEEK_SET);
 			if (ret < 0) {
@@ -82,7 +82,7 @@ void* reading_thread(void *arg)
 				break;
 			}
 
-			printf("[%i] Received [%d bytes] msg: [%s]\n", (i+1)*(j+1), ret, read_buff);
+			// printf("[%i] Received [%d bytes] msg: [%s]\n", (i+1)*(j+1), ret, read_buff);
 		}
 	}
 	close(fd);
