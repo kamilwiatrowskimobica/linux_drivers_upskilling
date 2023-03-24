@@ -18,8 +18,6 @@
 #define MOB_MESSAGE_LEN 256
 #define MOB_DEFAULT_DEV_COUNT 1
 
-#define WAIT_EN
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lukasz Krakowiak");
 MODULE_DESCRIPTION("A simple Linux char driver");
@@ -57,7 +55,6 @@ typedef enum {
 	CLEANUP_ALL = 15
 } type_of_cleanup_t;
 
-
 static void mobdev_clean_cdev(struct mob_dev *mdev)
 {
 	if (mdev == NULL)
@@ -65,12 +62,12 @@ static void mobdev_clean_cdev(struct mob_dev *mdev)
 
 	if (mdev->msg)
 		kfree(mdev->msg);
-#ifdef WAIT_EN
+
 	if (!completion_done(&mdev->sync_write)) {
 		complete_all(&mdev->sync_write);
 	}
 	mutex_destroy(&mdev->lock);
-#endif
+
 	device_destroy(mob_class, mdev->cdev.dev);
 	cdev_del(&mdev->cdev);
 }
@@ -105,19 +102,18 @@ void exit_handler(uint type_c)
 
 static int mobdev_open(struct inode *inodep, struct file *filep)
 {
-
 	struct mob_dev *mdev;
 	mdev = container_of(inodep->i_cdev, struct mob_dev, cdev);
 	if (!mdev) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	filep->private_data = mdev; /* for other methods */
 
 	printk_ratelimited(KERN_INFO "MOBChar: Device [%ld] has been opened\n",
-	       mdev->id);
+			   mdev->id);
 	return 0;
 }
 
@@ -126,7 +122,8 @@ static int mobdev_release(struct inode *inodep, struct file *filep)
 	struct mob_dev *mdev;
 	mdev = container_of(inodep->i_cdev, struct mob_dev, cdev);
 	if (mdev)
-		printk_ratelimited(KERN_INFO "MOBChar: Device [%ld] successfully closed\n",
+		printk_ratelimited(
+			KERN_INFO "MOBChar: Device [%ld] successfully closed\n",
 			mdev->id);
 	return 0;
 }
@@ -140,18 +137,17 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 	if (!mdev) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
-#ifdef WAIT_EN
 	result = wait_for_completion_interruptible(&mdev->sync_write);
 	if (result != ERESTARTSYS)
-        return result;
+		return result;
 
 	if (mutex_lock_interruptible(&mdev->lock) != 0)
-        return -EINTR;
-#endif
+		return -EINTR;
+
 	size = mdev->msg_size - *offset;
 
 	if (*offset > mdev->msg_size) {
@@ -164,6 +160,7 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 	result = copy_to_user(buffer, mdev->msg + *offset, size);
 	if (result != 0) {
+		mutex_unlock(&mdev->lock);
 		printk(KERN_ALERT
 		       "MOBChar: Failed to send %d characters to the user\n",
 		       result);
@@ -175,12 +172,10 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 END:
 
-#ifdef WAIT_EN
 	mutex_unlock(&mdev->lock);
-#endif
-
-	printk_ratelimited(KERN_INFO "MOBChar: %s_%d Sent %ld characters to user\n",
-	       MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), size);
+	printk_ratelimited(KERN_INFO
+			   "MOBChar: %s_%d Sent %ld characters to user\n",
+			   MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), size);
 
 	return size;
 }
@@ -193,28 +188,30 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 
 	if (mdev == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
-#ifdef WAIT_EN
 	if (mutex_lock_interruptible(&mdev->lock) != 0)
-        return -EINTR;
-#endif
+		return -EINTR;
 
 	if (len + *offset > MOB_MESSAGE_LEN) {
+		mutex_unlock(&mdev->lock);
+		complete(&mdev->sync_write);
 		printk(KERN_ALERT "MOBChar: User msg to big\n");
 		return -EMSGSIZE;
 	}
 
 	result = copy_from_user(mdev->msg + *offset, buffer, len);
 	if (result != 0) {
+		mutex_unlock(&mdev->lock);
+		complete(&mdev->sync_write);
 		printk(KERN_ALERT
 		       "MOBChar: Failed to send %d characters from user\n",
 		       result);
@@ -224,14 +221,13 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 	mdev->msg_size = len + *offset;
 	*offset += len;
 
-	printk_ratelimited(KERN_INFO
-	       "MOBChar: %s_%d Received %zu characters from the user\n",
-	       MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), len);
+	printk_ratelimited(
+		KERN_INFO
+		"MOBChar: %s_%d Received %zu characters from the user\n",
+		MOB_DEVICE_NAME, MINOR(mdev->cdev.dev), len);
 
-#ifdef WAIT_EN
 	mutex_unlock(&mdev->lock);
 	complete(&mdev->sync_write);
-#endif
 
 	return len;
 }
@@ -241,24 +237,25 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	loff_t npos = 0;
 	struct mob_dev *mdev = (struct mob_dev *)filep->private_data;
 
-	printk_ratelimited(KERN_INFO "MOBChar: llseek, offset = %lld, whence = %d\n",
-	       offset, whence);
+	printk_ratelimited(KERN_INFO
+			   "MOBChar: llseek, offset = %lld, whence = %d\n",
+			   offset, whence);
 
 	if (mdev == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
 
 	if (mdev->msg == NULL) {
 		printk(KERN_ALERT "MOBChar: %s error accessing mob_dev msg\n",
-			__FUNCTION__);
+		       __FUNCTION__);
 		return -EFAULT;
 	}
-#ifdef WAIT_EN
+
 	if (mutex_lock_interruptible(&mdev->lock) != 0)
-        return -EINTR;
-#endif
+		return -EINTR;
+
 	switch (whence) {
 	case SEEK_SET:
 		if (offset >= MOB_MESSAGE_LEN)
@@ -286,9 +283,7 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	if (npos < 0)
 		return -EINVAL;
 	filep->f_pos = npos;
-#ifdef WAIT_EN
-			mutex_unlock(&mdev->lock);
-#endif
+	mutex_unlock(&mdev->lock);
 	return npos;
 }
 
@@ -312,10 +307,8 @@ static int mobdev_init_cdev(struct mob_dev *mdev, size_t index)
 		printk(KERN_ALERT "MOBChar: failed to add cdev\n");
 		return result;
 	}
-#ifdef WAIT_EN
 	init_completion((struct completion *)&mdev->sync_write);
 	mutex_init(&mdev->lock);
-#endif
 	mdev->id = index;
 
 	// Register the device driver
