@@ -156,6 +156,9 @@ static ssize_t mobdev_read(struct file *filep, char *buffer, size_t len,
 
 	result = copy_to_user(buffer, mdev->msg + *offset, size);
 	if (result != 0) {
+		#ifdef MUTEX_EN
+			mutex_unlock(&mdev->lock);
+		#endif
 		printk(KERN_ALERT
 		       "MOBChar: Failed to send %d characters to the user\n",
 		       result);
@@ -201,12 +204,18 @@ static ssize_t mobdev_write(struct file *filep, const char *buffer, size_t len,
 #endif
 
 	if (len + *offset > MOB_MESSAGE_LEN) {
+		#ifdef MUTEX_EN
+			mutex_unlock(&mdev->lock);
+		#endif
 		printk(KERN_ALERT "MOBChar: User msg to big\n");
 		return -EMSGSIZE;
 	}
 
 	result = copy_from_user(mdev->msg + *offset, buffer, len);
 	if (result != 0) {
+		#ifdef MUTEX_EN
+			mutex_unlock(&mdev->lock);
+		#endif
 		printk(KERN_ALERT
 		       "MOBChar: Failed to send %d characters from user\n",
 		       result);
@@ -247,6 +256,11 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 		return -EFAULT;
 	}
 
+#ifdef MUTEX_EN
+	if (mutex_lock_interruptible(&mdev->lock) != 0)
+		return -EINTR;
+#endif
+
 	switch (whence) {
 	case SEEK_SET:
 		if (offset >= MOB_MESSAGE_LEN)
@@ -261,16 +275,9 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 		break;
 
 	case SEEK_END:
-#ifdef MUTEX_EN
-		if (mutex_lock_interruptible(&mdev->lock) != 0)
-			return -EINTR;
-#endif
 		if (mdev->msg_size + offset >= MOB_MESSAGE_LEN)
 			return -EFBIG;
 		npos = mdev->msg_size + offset;
-#ifdef MUTEX_EN
-			mutex_unlock(&mdev->lock);
-#endif
 		break;
 
 	default: /* not expected value */
@@ -280,6 +287,10 @@ loff_t mobdev_llseek(struct file *filep, loff_t offset, int whence)
 	if (npos < 0)
 		return -EINVAL;
 	filep->f_pos = npos;
+
+#ifdef MUTEX_EN
+	mutex_unlock(&mdev->lock);
+#endif
 
 	return npos;
 }
