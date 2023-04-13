@@ -229,7 +229,7 @@ clean_chrdev:
 	unregister_chrdev_region(dev, mob_devs_num);
 rel_region:
 	iounmap(io_mem);
-	release_region(base_mem, IO_MEM_SIZE);
+	release_mem_region(base_mem, IO_MEM_SIZE);
 	return result;
 }
 

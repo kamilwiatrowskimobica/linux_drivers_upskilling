@@ -22,7 +22,7 @@
  * 
  * Do the reverse operation to restore the original driver.
  * Note: It will cause the given device to stop functioning,
- * a usb keyboard in my case, it was resoted after binding back
+ * a usb keyboard in my case, it was restored after binding back
  * the original driver.
  * 
  * https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-pci
