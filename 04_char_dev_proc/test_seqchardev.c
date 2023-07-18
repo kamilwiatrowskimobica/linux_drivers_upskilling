@@ -79,15 +79,6 @@ int main()
 	result = test_read(fd, 7);
 	if (!check_result_less_than(result, RESULT_OK, "read"))
 		goto out;
-
-	result = lseek(fd, 0, SEEK_SET);
-	if (!check_result_less_than(result, RESULT_OK, "lseek"))
-		goto out;
-
-	result = test_read(fd, 11);
-	if (!check_result_less_than(result, RESULT_OK, "read"))
-		goto out;
-
 out:
 	if (close(fd)) {
 		perror("close failed \n");

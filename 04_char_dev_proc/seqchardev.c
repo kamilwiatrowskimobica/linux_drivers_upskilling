@@ -244,10 +244,16 @@ static ssize_t dev_read(struct file *filp, char *buffer, size_t count,
 	int error_count = 0;
 	struct char_dev *dev = (struct char_dev *)filp->private_data;
 
-	if ((*f_pos + count) > dev->data_size) {
+	printk(KERN_INFO "read pos %d, count %d data size %d data %s\n", *f_pos,
+	       count, dev->data_size, dev->p_data);
+
+	if (*f_pos > dev->data_size) {
 		count = 0;
 		goto out;
 	}
+	if (*f_pos + count > dev->data_size)
+		count = dev->data_size - *f_pos;
+
 	error_count = copy_to_user(buffer, dev->p_data + *f_pos, count);
 
 	if (error_count != 0) {
@@ -257,8 +263,8 @@ static ssize_t dev_read(struct file *filp, char *buffer, size_t count,
 	}
 	*f_pos += count;
 out:
-	printk(KERN_INFO " %s_%d Sent %ld characters to user\n", DEVICE_NAME,
-	       MINOR(dev->cdev.dev), count);
+	printk(KERN_INFO " %s_%d Sent %ld characters to user, data %s\n",
+	       DEVICE_NAME, MINOR(dev->cdev.dev), count, buffer);
 
 	return count;
 }
