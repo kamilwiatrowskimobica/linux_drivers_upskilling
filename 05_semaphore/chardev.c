@@ -90,13 +90,9 @@ static int seq_show(struct seq_file *s, void *v)
 	if (!dev) {
 		printk(KERN_ALERT "no device data\n");
 	}
-	if (!mutex_trylock(&dev->lock)) {
-		pr_info("busy seq_show\n");
-		return -EBUSY;
-	}
+
 	seq_printf(s, "seq_char_dev%i, data_size = %zu\n",
 		   (int)(dev - char_devices), dev->data_size);
-	mutex_unlock(&dev->lock);
 
 	return 0;
 }
@@ -136,7 +132,7 @@ static int __init char_init(void)
 		goto clean_chrdev;
 	}
 
-	// Register the device class
+	//Register the device class
 	seq_char_dev_class = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(seq_char_dev_class)) {
 		printk(KERN_ALERT "Failed to register device class\n");
@@ -256,11 +252,13 @@ static ssize_t dev_read(struct file *filp, char *buffer, size_t count,
 	int error_count = 0;
 	struct char_dev *dev = (struct char_dev *)filp->private_data;
 
-	if (mutex_lock_interruptible(&dev->lock))
+	if (mutex_lock_interruptible(&dev->lock)) {
+		printk(KERN_INFO "Device is in use\n");
 		return -ERESTARTSYS;
+	}
 
-	printk(KERN_INFO "read pos %d, count %d data size %d data %s\n", *f_pos,
-	       count, dev->data_size, dev->p_data);
+	printk(KERN_INFO "read pos %d, count %d data size %d \n", *f_pos, count,
+	       dev->data_size);
 	if (*f_pos > dev->data_size) {
 		count = 0;
 		goto out;
@@ -280,10 +278,10 @@ static ssize_t dev_read(struct file *filp, char *buffer, size_t count,
 	*f_pos += count;
 	dev->data_size -= count;
 out:
-	printk(KERN_INFO " %s_%d Sent %ld characters to user, data %s\n",
-	       DEVICE_NAME, MINOR(dev->cdev.dev), count, buffer);
-	mutex_unlock(&dev->lock);
+	printk(KERN_INFO " %s_%d Sent %ld characters to user\n", DEVICE_NAME,
+	       MINOR(dev->cdev.dev), count);
 
+	mutex_unlock(&dev->lock);
 	return count;
 }
 
@@ -291,7 +289,6 @@ static ssize_t dev_write(struct file *filp, const char *buf, size_t count,
 			 loff_t *f_pos)
 {
 	struct char_dev *dev = (struct char_dev *)filp->private_data;
-	printk(KERN_INFO "write\n");
 
 	if (dev == NULL) {
 		printk(KERN_ALERT " %s error accessing device\n", __FUNCTION__);
@@ -300,25 +297,31 @@ static ssize_t dev_write(struct file *filp, const char *buf, size_t count,
 
 	if (count + *f_pos > device_max_size) {
 		printk(KERN_WARNING
-		       "trying to write more than possible. Aborting write\n");
+		       "trying to write more than possible. Aborting write count %d, f_pos %d, device_max %d\n",
+		       count, *f_pos, device_max_size);
 		return -EFBIG;
 	}
-	if (mutex_lock_interruptible(&dev->lock))
+	if (mutex_lock_interruptible(&dev->lock)) {
+		printk(KERN_INFO "Device is in use\n");
+
 		return -ERESTARTSYS;
+	}
 
 	if (copy_from_user(dev->p_data + *f_pos, buf, count)) {
 		printk(KERN_WARNING "can't use copy_from_user. \n");
 		return -EPERM;
 	}
-	if (count + *f_pos > dev->data_size)
+
+	if (count + *f_pos > dev->data_size) {
 		dev->data_size = count + *f_pos;
+	}
+	*f_pos += count;
 	mutex_unlock(&dev->lock);
 
-	*f_pos += count;
-
 	printk(KERN_INFO
-	       "%s_%d Received %zu characters from the user. message: %s, pos %d\n",
-	       DEVICE_NAME, MINOR(dev->cdev.dev), count, buf, *f_pos);
+	       "%s_%d Received %zu characters from the user.  pos %d, data_size %d\n",
+	       DEVICE_NAME, MINOR(dev->cdev.dev), count, *f_pos,
+	       dev->data_size);
 
 	return count;
 }
@@ -327,7 +330,6 @@ loff_t dev_llseek(struct file *filep, loff_t offset, int whence)
 	loff_t new_position = 0;
 	struct char_dev *dev = (struct char_dev *)filep->private_data;
 
-	printk(KERN_INFO "Seek file\n");
 	if (!dev) {
 		printk(KERN_INFO " No device data\n");
 		return -EFAULT;

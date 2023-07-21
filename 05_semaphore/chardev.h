@@ -3,8 +3,8 @@
 
 #include <linux/cdev.h>
 #include <linux/mutex.h>
-#define DEVICE_MAX_SIZE (100)
 
+#define DEVICE_MAX_SIZE (1024 * 16 * 2)
 struct char_dev {
 	char *p_data;
 	size_t data_size;
