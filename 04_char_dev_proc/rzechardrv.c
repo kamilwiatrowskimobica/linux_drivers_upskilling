@@ -14,6 +14,8 @@
 #include <linux/device.h>        // class_create
 #include <linux/cdev.h>
 #include <linux/slab.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Rafal Zielinski");
@@ -31,7 +33,12 @@ struct char_dev {
 static struct class*  rzecharClass  = NULL;
 static struct device* rzecharDevice = NULL;
 static struct char_dev* my_devs = NULL;
+static struct proc_dir_entry* parent;
 
+static void * rzechar_seq_start(struct seq_file* sfile, loff_t* pos);
+static void * rzechar_seq_next(struct seq_file *s, void *v, loff_t *pos);
+static void rzechar_seq_stop(struct seq_file *s, void *v);
+static int rzechar_seq_show(struct seq_file *s, void *v);
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
@@ -43,9 +50,51 @@ static int rzechar_nr_devs = 1;
 
 module_param(rzechar_nr_devs, int, S_IRUGO);
 
+static struct seq_operations seq_ops = {
+        .start = rzechar_seq_start,
+        .next = rzechar_seq_next,
+        .stop = rzechar_seq_stop,
+        .show = rzechar_seq_show
+};
 
-static struct file_operations fops =
-{
+static int proc_open(struct inode* inode, struct file* file){
+        return seq_open(file, &seq_ops);
+}
+
+static const struct proc_ops proc_fops = {
+        .proc_open = proc_open,
+        .proc_read = seq_read,
+        .proc_lseek = seq_lseek,
+        .proc_release = seq_release
+};
+
+static void* rzechar_seq_start(struct seq_file* sfile, loff_t* pos){
+        if (*pos >= rzechar_nr_devs) return NULL; /* No more to read */
+        return my_devs + *pos;
+}
+
+static void* rzechar_seq_next(struct seq_file *s, void *v, loff_t *pos){
+        (*pos)++;
+        if (*pos >= rzechar_nr_devs) return NULL;
+        return my_devs + *pos;
+}
+
+static void rzechar_seq_stop(struct seq_file *s, void *v){
+        
+}
+
+static int rzechar_seq_show(struct seq_file *s, void *v){
+        struct char_dev *dev = (struct char_dev *)v;
+	if (!dev) {
+		pr_warn("failed, no device data\n");
+		return -EFAULT;
+	}
+
+        seq_printf(s, "Device data: %s", dev->p_data);
+        return 0;
+}
+
+static struct file_operations fops = {
         .owner = THIS_MODULE,
         .open = dev_open,
         .read = dev_read,
@@ -115,6 +164,8 @@ static int __init rzechardrv_init(void){
                 if (result)
                         printk(KERN_NOTICE "rzechar: Error %d adding hello", result);
         }
+
+        parent = proc_create("rzechar", 0666, NULL, &proc_fops);
     
         return result;
 }
@@ -122,6 +173,10 @@ static int __init rzechardrv_init(void){
 static void __exit rzechardrv_exit(void){
 
         size_t i = 0;
+        /* remove complete /proc/rzechar */
+        proc_remove(parent);
+        
+        
         for(i = 0; i < rzechar_nr_devs; i++){  
 
                 cdev_del(&my_devs[i].cdev);
