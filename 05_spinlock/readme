@@ -1,0 +1,11 @@
+Using spin lock in the char driver is causing errors in some cases.
+Basic tests are passing but when trying to write/read to the device using bash commands read operation fails:
+sudo bash -c 'echo "hello my friend" > /dev/scd_dev_0'
+sudo bash -c 'read INPUT < /dev/scd_dev_0'
+bash: line 1: read: read error: 0: Bad address
+
+Also in the kernel log can be seen that copy_to_user() operation fails.
+The same scenario works when mutex is used.
+The difference is that mutex gives back control to scheduler and task is delayed when mutex is not available
+and in case of spin lock task waits in loop. Anyway In our scenario spinlock was available as we reached copy_to_user(). 
+When spinlock is removed (no sync code in read function) then operation is successful.
