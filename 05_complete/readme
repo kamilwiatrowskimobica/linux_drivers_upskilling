@@ -1,0 +1,40 @@
+When wait_for_completion_interruptible() is used inside the read driver to wait until write is done for the first time, the "TEST read: race condition" test hangs.
+See the log from the driver:
+
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195621] scd_dev_read (pos: 120, offset: 120, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195621] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195623] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195623] scd_dev_read (pos: 117, offset: 117, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195624] scd_dev_read (pos: 114, offset: 114, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195624] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195626] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195626] scd_dev_read (pos: 111, offset: 111, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195628] scd_dev_read (pos: 108, offset: 108, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195628] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195629] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195630] scd_dev_read (pos: 105, offset: 105, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195631] scd_dev_read (pos: 102, offset: 102, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195632] scd_dev: Read 3 bytes.
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195633] scd_dev_read (pos: 99, offset: 99, len: 3.)
+Aug 14 11:15:48 bibi-VirtualBox kernel: [ 8479.195613] scd_dev_read (pos: 135, offset: 135, len: 3.)
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373430] scd_dev: read: wait_for_completion error: -512.
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373467] scd_dev: read: wait_for_completion error: -512.
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373467] scd_dev: read: wait_for_completion error: -512.
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373668] scd_dev: Device successfully closed.
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373673] scd_dev: Device successfully closed.
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373674] scd_dev: Device successfully closed.
+Aug 14 11:15:49 bibi-VirtualBox kernel: [ 8480.373676] scd_dev: Device successfully closed.
+...
+
+Test scenario:
+- write 180 bytes to the device buffer.
+- create 3 read threads. Each thread reads 20 times 3 bytes from the device.
+- After work is done the device buffer should be empty.
+
+Current behaviour:
+Test hangs at some point as wait_for_completion_interruptible fails during read with -ERESTARTSYS (-512) error.
+I suspect that after this failure the device is closed so further read attempts fail.
+"Device successfully closed." is printed on release of the device.
+
+Notes:
+As write is already done ealier (even in other tests) wait_for_completion_interruptible should do nothing in this scenario.
