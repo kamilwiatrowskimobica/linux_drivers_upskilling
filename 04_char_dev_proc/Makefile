@@ -2,7 +2,7 @@
 # kernel build system and can use its language.
 ifneq ($(KERNELRELEASE),)
 	obj-m := twdrv.o
-	twdrv-objs := twdrv_main.o twdrv_fops.o twdrv_data.o
+	twdrv-objs := twdrv_main.o twdrv_fops.o twdrv_data.o twdrv_proc.o
 #	obj-m := twdrv.o
 # Otherwise we were called directly from the command
 # line; invoke the kernel build system.

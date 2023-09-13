@@ -1,5 +1,6 @@
 #include "twdrv_fops.h"
 #include "twdrv_data.h"
+#include <linux/fs.h> 
 
 
 extern int twdrv_max_dev_size;
@@ -11,6 +12,7 @@ int twdev_fops_open(struct inode *inode, struct file *filp)
     struct twdrv_dev *dev;
     
     dev = container_of(inode->i_cdev, struct twdrv_dev, cdev);
+    printk(KERN_INFO "[twdrv.fops] Open dev 0x%lx: \n", (unsigned long)dev);
     filp->private_data = dev;
     printk(KERN_INFO "[twdrv.fops] Open successful\n");
 
@@ -27,11 +29,12 @@ int twdev_fops_release(struct inode *inode, struct file *filp)
 
 ssize_t twdev_fops_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
+    struct twdrv_dev *twdrv_device = filp->private_data;
     if (count > twdrv_max_dev_size){
         printk(KERN_WARNING "[twdrv_fops] Read Failed - Too big, aborting\n");
         return -EFBIG;
     }
-    if (copy_to_user(buf, (void*)twdrv_devices->p_data, count)) {
+    if (copy_to_user(buf, (void*)twdrv_device->p_data, count)) {
         printk(KERN_WARNING "[twdrv_fops] Read: copy_to_user failed\n");
 		return -EPERM;
     }
@@ -43,11 +46,14 @@ ssize_t twdev_fops_read(struct file *filp, char __user *buf, size_t count, loff_
 
 ssize_t twdev_fops_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
 {
+    struct twdrv_dev *twdrv_device = filp->private_data;
     if (count > twdrv_max_dev_size){
         printk(KERN_WARNING "[twdrv_fops] Write failed - too big, aborting\n");
         return -EFBIG;
     }
-    if (copy_from_user((void*)twdrv_devices->p_data, buf, count)) {
+
+    printk(KERN_INFO "[twdrv_fops] Write fpos = %lld\n", *f_pos);
+    if (copy_from_user((void*)twdrv_device->p_data + *f_pos, buf, count)) {
         printk(KERN_WARNING "[twdrv_fops] Write: copy_from_user failed\n");
         return -EPERM;
     }

@@ -1,11 +1,15 @@
 #include "twdrv_data.h"
 #include "twdrv_fops.h"
+#include "twdrv_proc.h"
+#include "twdrv_main.h"
+
+#include <linux/fs.h> 
 
  
 int twdrv_major = 0;
 int twdrv_minor = 0;
-unsigned int twdrv_nr_devs   = 1;
-unsigned int twdrv_max_dev_size = 20;
+unsigned int twdrv_nr_devs      = NUM_DEVICES;
+unsigned int twdrv_max_dev_size = MAX_DEVICE_SIZE;
 
 module_param(twdrv_major, int, S_IRUGO);
 module_param(twdrv_minor, int, S_IRUGO);
@@ -27,6 +31,8 @@ static void twdrv_main_exit(void)
 
     twdrv_data_release(twdrv_devices);
 
+    twdrv_proc_release();
+
 	unregister_chrdev_region(devno, twdrv_nr_devs);
 	printk(KERN_INFO "[twdrv_main] Exit: cdev deleted, kfree, chdev unregistered\n");
     printk(KERN_INFO "[twdrv_main] - EXITED ----------------------------------- \n");
@@ -43,12 +49,13 @@ static int twdrv_main_init(void)
 	if (twdrv_major) {
 		printk(KERN_INFO "[twdrv_main] Init: static allocation of major number (%d)\n",twdrv_major);
 		dev = MKDEV(twdrv_major, twdrv_minor);
-		result = register_chrdev_region(dev, twdrv_nr_devs, "twdrv");
+		result = register_chrdev_region(dev, twdrv_nr_devs, MODULE_NAME);
 	} else {
-		result = alloc_chrdev_region(&dev, twdrv_minor, twdrv_nr_devs, "twdrv");
+		result = alloc_chrdev_region(&dev, twdrv_minor, twdrv_nr_devs, MODULE_NAME);
 		twdrv_major = MAJOR(dev);
         printk(KERN_INFO "[twdrv_main] Init: dynamic allocation of major number (%d)\n", twdrv_major);
 	}
+
 	if (result < 0) {
 		printk(KERN_WARNING "[twdrv_main] Init: can't get major %d\n", twdrv_major);
 		return result;
@@ -61,6 +68,8 @@ static int twdrv_main_init(void)
         printk(KERN_WARNING "[twdrv_main] Init: Failed to init driver data \n");
         goto fail;
     }
+
+    twdrv_proc_init();
 
     return 0;
 

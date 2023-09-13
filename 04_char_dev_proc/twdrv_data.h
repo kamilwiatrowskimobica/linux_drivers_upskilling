@@ -6,6 +6,7 @@
 struct twdrv_dev {
 	char *p_data;
 	struct cdev cdev;
+	int id;
 };
 
 
