@@ -18,7 +18,7 @@ int main()
     struct pollfd pfds[1];
     int result;
 
-    fd1 = open("/dev/chardev0", O_RDWR | O_NONBLOCK);
+    fd1 = open("/dev/chardevice0", O_RDWR | O_NONBLOCK);
 
     if (fd1 < 0)
     {
@@ -35,7 +35,7 @@ int main()
 
     while (1)
     {
-        sleep(1);
+        sleep(3);
         result = poll(pfds, 1, 900);
 
         if (result < 0)
@@ -43,20 +43,21 @@ int main()
             printf("poll error");
             assert(0);
         }
-    }
 
-    for (int i = 0; i != 1; i++)
-    {
-        if ((pfds[i].revents & POLLIN) == POLLIN)
+        for (int i = 0; i != 1; i++)
         {
-            printf("read from chardev%i\n", i);
-            read(pfds[i].fd, output, strlen(output));
-        }
+            if ((pfds[i].revents & POLLIN) == POLLIN)
+            {
+                printf("read from chardevice%i\n", i);
+                read(pfds[i].fd, output, 20);
+                printf("Message: %s\n", output);
+            }
 
-        if ((pfds[i].revents & POLLOUT) == POLLOUT)
-        {
-            printf("write to chardev%i\n", i);
-            write(pfds[i].fd, input, strlen(input));
+            if ((pfds[i].revents & POLLOUT) == POLLOUT)
+            {
+                printf("write to chardevice%i\n", i);
+                write(pfds[i].fd, input, strlen(input));
+            }
         }
     }
 

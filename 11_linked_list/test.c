@@ -1,3 +1,6 @@
+// each write stores node with number
+// each read displays all nodes of list
+
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -6,7 +9,7 @@
 #include <stdio.h>
 
 #define BUFFER_LENGTH 10
-#define DEV_FILE_PATH "dev/chardev0"
+#define DEV_FILE_PATH "/dev/chardevice0"
 static char receiveBuffer[BUFFER_LENGTH];
 
 int main()

@@ -18,7 +18,7 @@
 #include "chardriver_ioctl.h"
 
 #define DEV_NUMBER 2
-#define MAX_DEV_BUFFER_SIZE 255
+#define MAX_DEV_BUFFER_SIZE 100
 #define DEVICE_NAME "chardevice"
 #define CLASS_NAME "charclass"
 
@@ -91,7 +91,7 @@ static const struct proc_ops pops =
 static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count);
+    ssize_t len = count; //min(device_data->size - *offset, count);
 
     mutex_lock_interruptible(&device_data->rw_mutex);
 
@@ -114,7 +114,7 @@ static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, lo
         return -EFAULT;
     }
 
-    *offset += len;
+    // *offset += len;
     printk(KERN_INFO "CharDriver: Read %zu bytes to user space\n", len);
     mutex_unlock(&device_data->rw_mutex);
 
@@ -124,7 +124,7 @@ static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, lo
 static ssize_t dev_write(struct file* file, const char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count); // CHECK
+    ssize_t len = count; //min(device_data->size - *offset, count); // CHECK
 
     mutex_lock_interruptible(&device_data->rw_mutex);
 
@@ -155,7 +155,8 @@ static ssize_t dev_write(struct file* file, const char* __user buffer, size_t co
         return -EFAULT;
     }
 
-    *offset += len;
+   // *offset += len;
+    device_data->size += len;
     printk(KERN_INFO "CharDriver: Wrote %zu bytes from user space\n", len);
     mutex_unlock(&device_data->rw_mutex);
 

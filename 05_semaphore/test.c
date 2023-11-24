@@ -4,51 +4,89 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <pthread.h>
 
-#define BUFFER_LENGTH 10
-#define DEV_FILE_PATH "dev/chardev0"
-static char receiveBuffer[BUFFER_LENGTH];
+#define BUFFER_LENGTH 256
+#define DEV_FILE_PATH "/dev/chardevice0"
+#define TEST_COUNT 1000
+
+void* write_worker(void* data)
+{
+    const char* message = "1234567890poiuytrewqasdfghjkl;.,mnbvcxz<-=[]\'/.)(*&)";
+
+    for (int i = 0; i < TEST_COUNT; i++)
+    {
+        int fd = open(DEV_FILE_PATH, O_WRONLY);
+        if (fd < 0)
+        {
+            printf("Failed to open file\n");
+            break;
+        }
+
+        for (int j = 0; j < TEST_COUNT; j++)
+        {
+            if (write(fd, message, strlen(message)) < 0)
+            {
+                printf("Failed to write message\n");
+                break;
+            }
+
+            if (lseek(fd, 0, SEEK_SET) < 0)
+            {
+                printf("Failed to seek device\n");
+                break;
+            }
+        }
+
+        close(fd);
+    }
+
+    return NULL;
+}
+
+void* read_worker()
+{
+    char buffer[BUFFER_LENGTH] = { 0 };
+
+    for (int i = 0; i < TEST_COUNT; i++)
+    {
+        int fd = open(DEV_FILE_PATH, O_RDONLY);
+        if (fd < 0)
+        {
+            printf("Failed to open file\n");
+            break;
+        }
+
+        for (int j = 0; j < TEST_COUNT; j++)
+        {
+            if (read(fd, buffer, BUFFER_LENGTH) < 0)
+            {
+                printf("Failed to read message\n");
+                break;
+            }
+
+            if (lseek(fd, 0, SEEK_SET) < 0)
+            {
+                printf("Failed to seek device\n");
+                break;
+            }
+        }
+
+        close(fd);
+    }
+
+    return NULL;
+}
 
 int main()
 {
-    int ret, fd;
-    char stringToSend[BUFFER_LENGTH];
+    pthread_t read_thread, write_thread;
 
-    fd = open(DEV_FILE_PATH, O_RDWR);
+    pthread_create(&write_thread, NULL, write_worker, NULL);
+    pthread_create(&read_thread, NULL, read_worker, NULL);
 
-    if (fd < 0)
-    {
-        perror("Failed to open device\n");
-        return errno;
-    }
-
-    printf("File %s opened\n", DEV_FILE_PATH);
-    printf("Type string to pass to driver\n");
-    scanf("%[^\n]%*c", stringToSend);
-    printf("Writing message '%s'\n", stringToSend);
-
-    ret = write(fd, stringToSend, strlen(stringToSend));
-
-    printf("Press Enter to read back from the device\n");
-    getchar();
-
-    if (ret < 0)
-    {
-        perror("Failed to write to the device\n");
-        return errno;
-    }
-
-    lseek(fd, 0, SEEK_SET);
-    printf("Reading from the device\n");
-    ret = read(fd, receiveBuffer, BUFFER_LENGTH);
-
-    if (ret < 0)
-    {
-        perror("Failed to read from the device\n");
-        return errno;
-    }
-
-    printf("Message: '%s'\n", receiveBuffer);
+    pthread_join(write_thread, NULL);
+    pthread_join(read_thread, NULL);
 
     return 0;
 }

@@ -43,7 +43,7 @@ static int mobbus_match(struct device* dev, struct device_driver* driver)
     
     // printk(dev_name(dev));
     // printk(driver->name);
-    result = strncmp(dev_name(dev), driver->name, strlen(driver->name));
+    result = strcmp(mob_device->type, mob_driver->type);
     
     return !result;
 }
@@ -107,7 +107,7 @@ static int mob_register_device(void)
     mob_device->dev.release = mobbus_device_release;
     dev_set_name(&mob_device->dev, "%s", name);
 
-    printk(KERN_INFO "MobBus: Added device %s tpe %s\n", name, mob_device->type);
+    printk(KERN_INFO "MobBus: Added device %s type %s\n", name, mob_device->type);
 
     return device_register(&mob_device->dev);
 }
@@ -140,7 +140,10 @@ int mob_register_driver(struct mob_driver* driver)
     value = driver_register(&driver->driver);
 
     if (value)
+    {
         printk(KERN_INFO "MobBus: A");
+        return value;
+    }
 
     printk(KERN_INFO "MobBus: B");
 

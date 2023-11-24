@@ -10,7 +10,7 @@
 #define NR_SECTORS 128
 #define SECTOR_SIZE 512
 
-#define DEVICE "/dev/block_disk"
+#define DEVICE "/dev/block_device"
 
 static void test(int fd, int sector)
 {
@@ -28,12 +28,12 @@ static void test(int fd, int sector)
     lseek(fd, sector * SECTOR_SIZE, SEEK_SET);
     read(fd, read_buffer, sizeof(read_buffer));
 
-    printf("test sector %d", sector);
+    printf("test sector %d\n", sector);
 
     if (memcmp(write_buffer, read_buffer, sizeof(read_buffer)) == 0)
-        printf("test passed");
+        printf("test passed\n");
     else
-        printf("test failed");
+        printf("test failed\n");
 }
 
 int main()

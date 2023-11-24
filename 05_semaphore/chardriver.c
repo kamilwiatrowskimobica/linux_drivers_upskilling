@@ -27,6 +27,7 @@ MODULE_VERSION("1.0");
 static int dev_major;
 static int dev_minor = 0;
 static int open_devices = 0;
+static int value = 10;
 
 struct device_data
 {
@@ -81,7 +82,7 @@ static const struct proc_ops pops =
 static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count);
+    ssize_t len = count; //min(device_data->size - *offset, count);
 
     mutex_lock_interruptible(&device_data->rw_mutex);
 
@@ -89,6 +90,8 @@ static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, lo
     printk(KERN_DEBUG "CharDriver: Device buffer size: %li\n", device_data->size);
     printk(KERN_DEBUG "CharDriver: Offset size: %lli\n", *offset);
     printk(KERN_DEBUG "CharDriver: User space buffer size %zu\n", count);
+
+    value++;
 
     if (len <= 0)
     {
@@ -114,7 +117,7 @@ static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, lo
 static ssize_t dev_write(struct file* file, const char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count); // CHECK
+    ssize_t len = count; //min(device_data->size - *offset, count); // CHECK
 
     mutex_lock_interruptible(&device_data->rw_mutex);
 
@@ -122,6 +125,8 @@ static ssize_t dev_write(struct file* file, const char* __user buffer, size_t co
     printk(KERN_DEBUG "CharDriver: Device buffer size: %li\n", device_data->size);
     printk(KERN_DEBUG "CharDriver: Offset size: %lli\n", *offset);
     printk(KERN_DEBUG "CharDriver: User space buffer size %zu\n", count);
+
+    value--;
 
     if (len <= 0)
     {
@@ -157,14 +162,14 @@ static int dev_open(struct inode* inode, struct file* file)
     struct device_data* device_data = container_of(inode->i_cdev, struct device_data, cdev);
     file->private_data = device_data;
 
-    printk(KERN_INFO "CharDriver: Opening device, number of open devices: %i\n", open_devices);
+   // printk(KERN_INFO "CharDriver: Opening device, number of open devices: %i\n", open_devices);
 
     return 0;
 }
 
 static int dev_release(struct inode* inode, struct file* file)
 {
-    printk(KERN_INFO "CharDriver: Releasing device, number of open devices: %i\n", open_devices);
+   // printk(KERN_INFO "CharDriver: Releasing device, number of open devices: %i\n", open_devices);
 
     return 0;
 }
@@ -337,6 +342,8 @@ static int dev_init(void)
 
     result = dev_proc_init(); // Init sequentional read
 
+    printk(KERN_INFO "CharDriver: Initial value = %d\n", value); // For mutex locking and unlocking check, initial value is 10
+
     return result;
 }
 
@@ -360,6 +367,8 @@ static void clear_devices_data(void)
 static void dev_exit(void)
 {
     printk(KERN_INFO "CharDriver: Exit\n");
+    printk(KERN_INFO "CharDriver: Value on exit = %d\n", value); // Expected value on exit is 10
+
     dev_t dev = MKDEV(dev_major, dev_minor);
     dev_proc_exit();
     clear_devices_data();

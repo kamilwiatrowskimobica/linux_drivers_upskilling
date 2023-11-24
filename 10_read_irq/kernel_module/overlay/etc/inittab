@@ -8,4 +8,4 @@
 ::respawn:-/bin/sh
 ::shutdown:/etc/init.d/rcK
 ::shutdown:/sbin/swapoff -a
-::shutdown:/bin/unmount -a -r
+::shutdown:/bin/umount -a -r

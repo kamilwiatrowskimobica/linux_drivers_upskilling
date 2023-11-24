@@ -444,8 +444,6 @@ static int netdevice_poll(struct napi_struct* napi, int budget)
         netdevice_release_buffer(pkt);
     }
 
-    budget -+ npackets;
-
     if (npackets < budget)
     {
         unsigned long flags;
@@ -486,7 +484,7 @@ static int netdevice_init(void)
     netdevs[0] = alloc_netdev(sizeof(struct netdevice_private), "netdev%d", NET_NAME_UNKNOWN, netdev_init);
     netdevs[1] = alloc_netdev(sizeof(struct netdevice_private), "netdev%d", NET_NAME_UNKNOWN, netdev_init);
 
-    if (!netdevs[0] || netdevs[1])
+    if (!netdevs[0] || !netdevs[1])
     {
         printk(KERN_INFO "NetDriver: Allocation error\n");
         return -ENODEV;

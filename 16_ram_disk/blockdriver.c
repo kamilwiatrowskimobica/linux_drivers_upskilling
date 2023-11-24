@@ -11,11 +11,11 @@
 
 #define NR_SECTORS 128
 #define KERNEL_SECTOR_SIZE 512
-#define DISK_NAME "block_disk"
+//#define DISK_NAME "block_disk"
 #define DEV_NAME "block_device"
 
 int dev_major = 240;
-int dev_minor = 1;
+int dev_minor = 0;
 int dev_minors = 1;
 
 static struct block_dev
@@ -94,7 +94,7 @@ static blk_status_t block_request(struct blk_mq_hw_ctx* hctx, const struct blk_m
     {
         printk(KERN_INFO "BlockDriver: Skip non-fs request\n");
         blk_mq_end_request(req, BLK_STS_IOERR);
-        return BLK_STS_IOERR;    
+        return BLK_STS_OK;
     }
 
     printk(KERN_INFO "BlockDriver: pos=%llu bytes=%u cur_bytes=%u dir=%c\n",
@@ -115,7 +115,7 @@ static int create_block_dev(struct block_dev* dev)
 
     memset(dev, 0, sizeof(struct block_dev));
     dev->size = NR_SECTORS * KERNEL_SECTOR_SIZE;
-    dev->size = vmalloc(dev->size);
+    dev->data = vmalloc(dev->size);
 
     if (!dev->data)
     {
@@ -147,13 +147,26 @@ static int create_block_dev(struct block_dev* dev)
         return -ENOMEM;
     }
 
+    blk_queue_logical_block_size(dev->q, KERNEL_SECTOR_SIZE);
+    dev->q->queuedata = dev;
+    dev->gd = blk_alloc_disk(dev_minors);
+
+    if (!dev->gd)
+    {
+        printk(KERN_INFO "BlockDriver: Disk allocation error\n");
+        vfree(dev->data);
+        blk_mq_alloc_tag_set(&dev->tag_set);
+        blk_cleanup_queue(dev->q);
+        return -ENOMEM;
+    }
+
     dev->gd->major = dev_major;
     dev->gd->first_minor = dev_minor;
     dev->gd->minors = dev_minors;
     dev->gd->fops = &bops;
     dev->gd->queue = dev->q;
     dev->gd->private_data = dev;
-    snprintf(dev->gd->disk_name, 32, DISK_NAME);
+    snprintf(dev->gd->disk_name, 32, DEV_NAME);
     set_capacity(dev->gd, NR_SECTORS);
 
     add_disk(dev->gd);
@@ -185,7 +198,7 @@ static int block_init(void)
 
 static void delete_block_dev(struct block_dev* dev)
 {
-    printk(KERN_INFO "BlockDriver: Device cleanup\n");
+    printk(KERN_INFO "BlockDriver: Device cleanupCCC\n");
     if (dev->gd)
         del_gendisk(dev->gd);
 
@@ -194,7 +207,7 @@ static void delete_block_dev(struct block_dev* dev)
 
     if (dev->tag_set.tags)
         blk_mq_free_tag_set(&dev->tag_set);
-    
+
     if (dev->data)
         vfree(dev->data);
 }

@@ -39,7 +39,7 @@ void ioctl_reset(int fd)
 
 int main()
 {
-    int fd = open("/dev/chardev0", O_RDWR);
+    int fd = open("/dev/chardevice0", O_RDWR);
 
     char message[] = "ABCDEF";
 

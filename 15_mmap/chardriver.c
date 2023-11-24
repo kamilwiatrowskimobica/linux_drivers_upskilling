@@ -9,8 +9,12 @@
 
 #define DEV_NUMBER 2
 #define MAX_DEV_BUFFER_SIZE 255
-#define DEVICE_NAME "chardevice"
+#define DEVICE_NAME "mmap_device"
 #define CLASS_NAME "charclass"
+
+// create node /dev/mmap_device
+// major=$(awk "\$2==\"mmap_device\" {print \$1}" /proc/devices)
+// sudo mknod /dev/mmap_device c $major 0
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("A B");
@@ -155,6 +159,8 @@ static int dev_release(struct inode* inode, struct file* file)
 
 static int dev_init(void)
 {
+    printk(KERN_INFO "CharDriver: Init");
+
     int i, result;
     dev_t dev;
     struct proc_dir_entry* entry;
@@ -189,7 +195,7 @@ static int dev_init(void)
         return PTR_ERR(kmalloc_ptr);
     }
 
-    printk(KERN_INFO "CharDriver: Allocation successful, size = %lu, page size = %lu, pages = %d\n",
+    printk(KERN_INFO "CharDriver: Allocation of %p successful, size = %lu, page size = %lu, pages = %d\n",
                      kmalloc_ptr, (NPAGES + 2) * PAGE_SIZE, PAGE_SIZE, (NPAGES + 2));
 
     kmalloc_area = (char*) PAGE_ALIGN((unsigned long) kmalloc_ptr);

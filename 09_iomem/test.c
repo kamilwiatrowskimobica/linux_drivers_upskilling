@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define BUFFER_LENGTH 10
-#define DEV_FILE_PATH "dev/chardev0"
+#define DEV_FILE_PATH "/dev/chardevice0"
 static char receiveBuffer[BUFFER_LENGTH];
 
 int main()

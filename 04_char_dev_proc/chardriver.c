@@ -79,7 +79,7 @@ static const struct proc_ops pops =
 static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count);
+    ssize_t len = count; //min(device_data->size - *offset, count);
 
     printk(KERN_DEBUG "CharDriver: Read\n");
     printk(KERN_DEBUG "CharDriver: Device buffer size: %li\n", device_data->size);
@@ -107,7 +107,7 @@ static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, lo
 static ssize_t dev_write(struct file* file, const char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count); // CHECK
+    ssize_t len = count; //min(device_data->size - *offset, count); // CHECK
 
 
     printk(KERN_DEBUG "CharDriver: Write\n");
@@ -159,7 +159,7 @@ static int dev_release(struct inode* inode, struct file* file)
 
 static void* dev_seq_start(struct seq_file* seq_file, loff_t* pos)
 {
-    seq_printf(seq_file, "CharDriver: 'device' : buffer'"); // ???
+    seq_printf(seq_file, "CharDriver:\n'device'\t:\t'buffer'\n"); // ???
 
     if (*pos >= DEV_NUMBER)
         return NULL;
@@ -186,7 +186,7 @@ static int dev_seq_show(struct seq_file* seq_file, void* v)
 {
     struct device_data* iter = (struct device_data*) v;
     int device_number = (int) (devices - iter);
-    seq_printf(seq_file, "chardev%i: %s", device_number, iter->buffer);
+    seq_printf(seq_file, "chardev%i\t:\t%s\n", device_number, iter->buffer);
 
     return 0;
 }

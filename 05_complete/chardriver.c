@@ -15,7 +15,7 @@
 
 #include "chardriver.h"
 
-#define DEV_NUMBER 2
+#define DEV_NUMBER 1
 #define MAX_DEV_BUFFER_SIZE 255
 #define DEVICE_NAME "chardevice"
 #define CLASS_NAME "charclass"
@@ -84,12 +84,12 @@ static const struct proc_ops pops =
 static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count);
+    ssize_t len = count; //min(device_data->size - *offset, count);
 
     if (!completion_done(&w_completion))
     {
         printk(KERN_INFO "CharDriver: Waiting for write to complete\n");
-        wait_for_completion_timeout(&w_completion, 10); // 10 seconds timeout
+        wait_for_completion_timeout(&w_completion, 1000); // 10 seconds timeout ???
     }
 
     mutex_lock_interruptible(&device_data->rw_mutex);
@@ -123,7 +123,7 @@ static ssize_t dev_read(struct file* file, char* __user buffer, size_t count, lo
 static ssize_t dev_write(struct file* file, const char* __user buffer, size_t count, loff_t* offset)
 {
     struct device_data* device_data = (struct device_data*) file->private_data;
-    ssize_t len = min(device_data->size - *offset, count); // CHECK
+    ssize_t len = count; //min(device_data->size - *offset, count); // CHECK
 
     mutex_lock_interruptible(&device_data->rw_mutex);
 
@@ -157,6 +157,7 @@ static ssize_t dev_write(struct file* file, const char* __user buffer, size_t co
     *offset += len;
     printk(KERN_INFO "CharDriver: Wrote %zu bytes from user space\n", len);
     mutex_unlock(&device_data->rw_mutex);
+    complete(&w_completion);
 
     return len;
 }
@@ -166,14 +167,14 @@ static int dev_open(struct inode* inode, struct file* file)
     struct device_data* device_data = container_of(inode->i_cdev, struct device_data, cdev);
     file->private_data = device_data;
 
-    printk(KERN_INFO "CharDriver: Opening device, number of open devices: %i\n", open_devices);
+   // printk(KERN_INFO "CharDriver: Opening device, number of open devices: %i\n", open_devices);
 
     return 0;
 }
 
 static int dev_release(struct inode* inode, struct file* file)
 {
-    printk(KERN_INFO "CharDriver: Releasing device, number of open devices: %i\n", open_devices);
+   // printk(KERN_INFO "CharDriver: Releasing device, number of open devices: %i\n", open_devices);
 
     return 0;
 }
@@ -321,7 +322,7 @@ static int dev_init(void)
             return -ENOMEM;
         }
 
-        init_completion(&w_completion);
+       // init_completion(&w_completion); // declared as static
         mutex_init(&devices[i].rw_mutex);
         cdev_init(&dev_data->cdev, &fops);
         dev_data->buffer = (char*) kmalloc(sizeof(char) * MAX_DEV_BUFFER_SIZE, GFP_KERNEL);

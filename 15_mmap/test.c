@@ -12,7 +12,7 @@
 #define PROC_ENTRY_NAME "mmap_driver_seq"
 #define MAP_NAME "mmap_device"
 #define MMAP_DEV "/dev/" MAP_NAME
-#define PROC_ENTRY_FILE "/proc" PROC_ENTRY_NAME
+#define PROC_ENTRY_FILE "/proc/d" PROC_ENTRY_NAME
 
 void test_mem(unsigned char* addr, unsigned char v1, unsigned char v2, unsigned char v3, unsigned char v4)
 {
@@ -62,7 +62,7 @@ int test_read_write(int fd, unsigned char* mmap_addr)
 
 int main()
 {
-    int fd, test = 3;
+    int fd, test = 2;
     unsigned char* addr;
     int len = NPAGES * getpagesize();
     int i;
@@ -71,7 +71,10 @@ int main()
 
     fd = open("/dev/mmap_device", O_RDWR | O_SYNC);
     if (fd < 0)
+    {
         printf("falied to open file");
+        return -1;
+    }
 
     addr = mmap(NULL, len, PROT_READ, MAP_SHARED, fd, 0);
     printf("mmap addr = %p\n", addr);
