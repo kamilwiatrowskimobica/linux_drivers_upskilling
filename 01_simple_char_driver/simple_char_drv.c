@@ -112,7 +112,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
 			 loff_t *offset)
 {
-	snprintf(message, len, "%s(%zu letters)", buffer, len);
+	copy_from_user(message, buffer, len);
 	size_of_message = strlen(message);
 	printk(KERN_INFO "SCD: Received %zu characters from the user\n", len);
 	return len;
