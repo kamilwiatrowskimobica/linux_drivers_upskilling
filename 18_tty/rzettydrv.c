@@ -30,6 +30,8 @@ static int dev_open(struct tty_struct *tty, struct file *file){
  	
  	index = tty->index;
  	tiny = tiny_table[index];
+ 	
+ 	printk(KERN_INFO "rzetty: opening dev: %d\n", index);
 
 	mutex_lock(&tiny->mutex);
 	
@@ -41,7 +43,7 @@ static int dev_open(struct tty_struct *tty, struct file *file){
 	
 	mutex_unlock(&tiny->mutex);
 
-	return -ENOMEM;
+	return 0;
 }
 
 static void dev_close(struct tty_struct *tty, struct file *file){
@@ -50,6 +52,8 @@ static void dev_close(struct tty_struct *tty, struct file *file){
 	
 	index = tty->index;
  	tiny = tiny_table[index];
+ 	
+ 	printk(KERN_INFO "rzetty: closing dev: %d\n", index);
  	
  	mutex_lock(&tiny->mutex);
 
@@ -71,6 +75,8 @@ static int dev_write(struct tty_struct *tty,
 	
 	index = tty->index;
  	tiny = tiny_table[index];
+ 	
+ 	printk(KERN_INFO "rzetty: writing size %d to dev: %d\n", count, index);
 
 	if (!tiny)
 		return -ENODEV;
@@ -88,6 +94,8 @@ static int dev_write(struct tty_struct *tty,
 	for (i = 0; i < count; ++i)
 		pr_info("%02x ", buffer[i]);
 	pr_info("\n");
+	
+	retval = count;
 
 exit:
 	mutex_unlock(&tiny->mutex);
@@ -101,7 +109,7 @@ static unsigned int dev_write_room(struct tty_struct *tty){
 	
 	index = tty->index;
  	tiny = tiny_table[index];
-
+ 	
 	if (!tiny)
 		return -ENODEV;
 
@@ -114,6 +122,9 @@ static unsigned int dev_write_room(struct tty_struct *tty){
 
 	/* calculate how much room is left in the device */
 	room = 255;
+	
+	printk(KERN_INFO "rzetty: write room: %d for dev: %d\n", room, index);
+
 
 exit:
 	mutex_unlock(&tiny->mutex);
