@@ -11,19 +11,36 @@
 #include <linux/spinlock.h>
 #include <linux/atmioc.h>
 
+#include <linux/ioctl.h>
+
 #define DEV_NAME "pm_char_dev"
 #define CLASS_NAME "pm_char_dev_class"
 #define DEVICE_NAME "pm_char_device"
 #define DATA_SIZE 256
 
+struct command_t{
+    uint32_t size;
+    uint8_t *command;
+};
+
+#define IOCTL_COMMAND 'k'
+#define IOCTL_COMMAND_WRITE _IOW(IOCTL_COMMAND, 1, struct command_t)
+#define IOCTL_COMMAND_READ _IOR(IOCTL_COMMAND, 2, struct command_t)
+#define IOCTL_OPTION_WRITE _IOW(IOCTL_COMMAND, 3, int)
+#define IOCTL_OPTION_READ _IOR(IOCTL_COMMAND, 4, int)
+#define IOCTL_COM_MAX_NR 4
+
 struct char_device_t {
     dev_t dev_number;
     char data[DATA_SIZE];
+    int option;
+
     spinlock_t spin_lock;
     atomic_t atom;
     // struct mutex lock_mutex;
     // struct completion complet_write;
     // struct completion complet_read;
+
     struct cdev char_dev; 
     struct class *dev_class;
     struct device *device;
@@ -173,12 +190,80 @@ static loff_t dev_lseek(struct file *pfile, loff_t offset, int option){
     return pfile->f_pos;
 }
 
+static long dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg){
+    pr_info("IOCTL\n");
+    int ret = 0;
+    struct char_device_t *dev;
+    dev = (struct char_device_t*)pfile->private_data;
+    struct command_t buf;
+
+    if(_IOC_TYPE(cmd) != IOCTL_COMMAND){
+        pr_err("Wrong command name\n");
+        return -ENOTTY;
+    }
+
+    if(_IOC_NR(cmd) > IOCTL_COM_MAX_NR){
+        pr_err("Wrong command number\n");
+        return -ENOTTY;
+    }
+
+    if(!access_ok((void __user *)arg, _IOC_SIZE(cmd))){
+        pr_err("Invalid adress\n");
+        return -EFAULT;
+    }
+
+    if( cmd == IOCTL_COMMAND_WRITE || cmd == IOCTL_COMMAND_READ){
+        if(copy_from_user(&buf, (void __user *) arg, _IOC_SIZE(cmd))){
+            pr_err("write/read by pointer command error");
+            return -ENOTTY;
+        } else {
+            if(buf.size > DATA_SIZE){
+                buf.size = DATA_SIZE;
+            }
+        }
+    }
+
+    spin_lock(&dev->spin_lock);
+    switch(cmd) {
+        case IOCTL_OPTION_READ:
+            pr_info("read option by value\n");
+            ret = dev->option;
+            break;
+        case IOCTL_OPTION_WRITE:
+            pr_info("write option by value\n");
+            dev->option = (int)arg;
+            break;
+        case IOCTL_COMMAND_WRITE:
+            pr_info("write struct/data by pointer\n");
+            if(copy_from_user(dev->data, buf.command, buf.size)){
+                pr_err("write data error");
+                ret = -ENOTTY;
+            } else {
+                pr_info("data %s\n", dev->data);
+            }
+            break;
+        case IOCTL_COMMAND_READ:
+            pr_info("read struct/data by pointer\n");
+            if(copy_to_user(buf.command, dev->data, buf.size)){
+                pr_err("read data error");
+                ret = -ENOTTY;
+            }
+            break;
+        default:
+            pr_err("unknow command [%u vs %u]\n", cmd);
+            ret = -ENOTTY;
+    }
+    spin_unlock(&dev->spin_lock);
+    return ret;
+}
+
 static struct file_operations foper = {
     .open= dev_open,
     .release = dev_close,
     .read = dev_read,
     .write = dev_write,
     .llseek = dev_lseek,
+    .unlocked_ioctl = dev_ioctl,
     .owner = THIS_MODULE,
 };
 
@@ -256,5 +341,5 @@ module_exit(exit_char_dev);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Pawel Marchewka");
-MODULE_DESCRIPTION("pseudo char driver with ioctl");
+MODULE_DESCRIPTION("pseudo char driver with spinlock");
 MODULE_VERSION("0.1");
