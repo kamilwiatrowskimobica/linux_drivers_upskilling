@@ -54,6 +54,7 @@ struct char_device_t {
     int pos_write;
     int option;
     int irq_pin;
+    struct tasklet_struct tasklet_basic;
 
     spinlock_t spin_lock;
     atomic_t atom;
@@ -68,9 +69,15 @@ struct char_device_t {
 
 struct kmem_cache *dev_cache;
 
+void tasklet_handler(unsigned long data){
+    pr_info("Tasklet IRQ: botton half, data: %ld\n", data);
+}
+
 static irqreturn_t irq_handler(int irq, void* data){
     // some action ...
     pr_info("Shared IRQ: Interrupt Occurred\n");
+    pm_dev.tasklet_basic.data = 10;
+    tasklet_schedule(&(pm_dev.tasklet_basic));
     return IRQ_HANDLED;
 }
 
@@ -437,6 +444,8 @@ static int __init init_char_dev(void){
     } else {
         pr_info("IRQ Handler added successfully\n");
         pm_dev.irq_pin = IRQ_NO;
+
+        tasklet_init(&(pm_dev.tasklet_basic), tasklet_handler, 0);
     }
 
 
@@ -478,6 +487,8 @@ static void __exit exit_char_dev(void){
 
     if(pm_dev.irq_pin > 0) {
         free_irq(pm_dev.irq_pin, (void*)irq_handler);
+        tasklet_kill(&(pm_dev.tasklet_basic));
+
     }
 
     if(dev_cache){
